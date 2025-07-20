@@ -192,15 +192,6 @@ This approach supports:
 - Ideal as a background app or interactive stream overlay controller  
 ---
 
-## Installation
-
-Coming soon!  
-Executable + installer in development.
-
-> Source code will be released with roadmap and contribution guide once ready.
-
----
-
 ## Feedback & Contributions
 
 Suggestions and feature ideas are always welcome.  
