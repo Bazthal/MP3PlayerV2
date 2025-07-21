@@ -1,7 +1,7 @@
 ﻿using System.Globalization;
 using System.Text;
 using System.Text.Encodings.Web;
-using System.Text.Json;
+using System.Text.Json; 
 using BazthalLib;
 using BazthalLib.Configuration;
 using BazthalLib.Controls;
@@ -105,7 +105,6 @@ namespace MP3PlayerV2
             LoadThemeFromJson();
             LoadSettings();
 
-            System.Diagnostics.Debug.WriteLine("this is a test to see if the debug line is showing in the output log");
             _playlistManager.PlaylistChanged += () =>
             {
                 playListBox.Items.Clear();
@@ -155,7 +154,7 @@ namespace MP3PlayerV2
         /// system.</remarks>
         /// <param name="filePath">The path to the audio file to be played. The file must exist at the specified path.</param>
         /// <param name="deviceID">The optional ID of the audio output device. If not specified, the default audio device is used.</param>
-        private void InitilizeCSCore(string filePath, string deviceID = "")
+        private bool InitilizeCSCore(string filePath, string deviceID = "")
         {
             DisposeCSCore(); // Clean up before reinitializing
 
@@ -177,7 +176,7 @@ namespace MP3PlayerV2
             else
             {
                 DebugUtils.Log("Initilize CSCore", Name, "File not found.");
-                return;
+                return false;
             }
 
             _soundOut = (string.IsNullOrEmpty(deviceID))
@@ -185,11 +184,10 @@ namespace MP3PlayerV2
                 : new WasapiOut { Device = new MMDeviceEnumerator().GetDevice(deviceID) };
 
             DebugUtils.Log("Initilize CSCore", Name, $"Device ID: {deviceID}");
-
             _soundOut.Initialize(_waveSource);
             SetVolume();
             _soundOut.Stopped += OnSoundOutStopped;
-
+            return true;
         }
 
         /// <summary>
@@ -235,73 +233,86 @@ namespace MP3PlayerV2
         /// information via WebSocket if the server is running. Playback statistics are saved to the database.</remarks>
         private void Play()
         {
-            //Check to see if it's currently active playing audio
-            if (_soundOut?.PlaybackState == PlaybackState.Playing)
+            // Check to see it's null first before trying see if it's playing or paused
+            if (_soundOut != null)
             {
-                //Check to see if the currently played track is the same as the slected track in the play list
-                if (!string.IsNullOrWhiteSpace(_currentTrack) || !_currentTrack.Contains(playListBox.SelectedItem.ToString()))
+                //Check to see if it's currently active playing audio
+                if (_soundOut?.PlaybackState == PlaybackState.Playing)
                 {
-                    //Stop Then process the new track
-                    Stop();
-                    DebugUtils.Log("No Track Match", "Play", $"Match Not Found: {_currentTrack} is not {playListBox.SelectedItem}");
+                    //Check to see if the currently played track is the same as the slected track in the play list
+                    if (!string.IsNullOrWhiteSpace(_currentTrack) || !_currentTrack.Contains(playListBox.SelectedItem.ToString()))
+                    {
+                        //Stop Then process the new track
+                        Stop();
+                        DebugUtils.Log("No Track Match", "Play", $"Match Not Found: {_currentTrack} is not {playListBox.SelectedItem}");
+                    }
+                    else
+                    {
+                        DebugUtils.Log("Track Match", "Play", $"Match Found: {_currentTrack}");
+                        //if it's the same do nothing and exit here
+                        return;
+                    }
                 }
-                else
+
+                //Check to see if there something paused and resume this
+                if (_soundOut?.PlaybackState == PlaybackState.Paused)
                 {
-                    DebugUtils.Log("Track Match", "Play", $"Match Found: {_currentTrack}");
-                    //if it's the same do nothing and exit here
+                    _soundOut?.Resume();
+                    this.Text = $"MP3 Player - {Cur_Track_Label.Text}";
+                    DebugUtils.Log("Play", "Pause-Resumed", $"{_currentTrack}");
                     return;
                 }
             }
-
-            //Check to see if there something paused and resume this
-            if (_soundOut?.PlaybackState == PlaybackState.Paused)
-            {
-                _soundOut?.Resume();
-                this.Text = $"MP3 Player - {Cur_Track_Label.Text}";
-                DebugUtils.Log("Play", "Pause-Resumed", $"{_currentTrack}");
-                return;
-            }
-            var deviceID = "";
-            if (playListBox.Items.Count > 0 && playListBox.SelectedIndex != -1)
-            {
-                if (AudioDeviceList.SelectedIndex != -1)
+       
+                var deviceID = "";
+                if (playListBox.Items.Count > 0 && playListBox.SelectedIndex != -1)
                 {
-                    _audioDeviceIDList.SelectedIndex = AudioDeviceList.SelectedIndex;
-                    deviceID = _audioDeviceIDList.SelectedItem.ToString();
-                }
+                    if (AudioDeviceList.SelectedIndex != -1)
+                    {
+                        _audioDeviceIDList.SelectedIndex = AudioDeviceList.SelectedIndex;
+                        deviceID = _audioDeviceIDList.SelectedItem.ToString();
+                    }
 
-                var track = _playlistManager.Get(playListBox.SelectedIndex);
-                _currentTrack = track.FilePath;
-                InitilizeCSCore(track.FilePath, deviceID);
-                Cur_Track_Label.Text = track.ToString();
-
-                this.Text = $"MP3 Player - {Cur_Track_Label.Text}";
-
-                //Configure Tackbar to Music File
-                Tracking_Slider.Maximum = (int)_waveSource?.GetLength().TotalSeconds;
-                Tracking_Slider.Value = 0;
-
-                _soundOut?.Play();
-                PlayTimer.Start();
-                track.PlayCount++;
-                track.LastPlayed = DateTime.UtcNow;
-                var dispTime = $"{track.LastPlayed?.ToLocalTime().ToShortDateString()}-{track.LastPlayed?.ToLocalTime().ToShortTimeString()}" ;
-
-                //Save stats to database
-                try
+                    var track = _playlistManager.Get(playListBox.SelectedIndex);
+                    _currentTrack = track.FilePath;
+                if (InitilizeCSCore(track.FilePath, deviceID))
                 {
-                    TrackDatabase.SaveStats(track);
+                    Cur_Track_Label.Text = track.ToString();
+
+                    this.Text = $"MP3 Player - {Cur_Track_Label.Text}";
+
+                    //Configure Tackbar to Music File
+                    Tracking_Slider.Maximum = (int)_waveSource?.GetLength().TotalSeconds;
+                    Tracking_Slider.Value = 0;
+
+                    _soundOut?.Play();
+                    PlayTimer.Start();
+                    track.PlayCount++;
+                    track.LastPlayed = DateTime.UtcNow;
+                    var dispTime = $"{track.LastPlayed?.ToLocalTime().ToShortDateString()}-{track.LastPlayed?.ToLocalTime().ToShortTimeString()}";
+
+                    //Save stats to database
+                    try
+                    {
+                        TrackDatabase.SaveStats(track);
+                    }
+                    catch (Exception ex) { DebugUtils.Log("Play", "Save Stats", $"Saving to data base error: {ex.Message}"); }
+
+                    DebugUtils.Log("Play", Text, $"Current Track: {_currentTrack}");
+                    DebugUtils.Log("Tracking", "Play", $"{_waveSource?.GetLength()}");
+
+                    if (!_running) { DebugUtils.Log("Play", "WebSocket", "Websocket isn't running no broadcast sent"); return; }
+                    var nowPlayingInfo = new { NowPlaying = track.ToString(), track.PlayCount, track.LastPlayed, LocalTime = dispTime };
+                    string jsonMessage = JsonSerializer.Serialize(nowPlayingInfo, _jsonOption);
+                    _server?.WebSocketServices["/nowplaying"].Sessions.Broadcast(jsonMessage);
                 }
-                catch(Exception ex) { DebugUtils.Log("Play", "Save Stats", $"Saving to data base error: {ex.Message}"); }
-
-                DebugUtils.Log("Play", Text, $"Current Track: {_currentTrack}");
-                DebugUtils.Log("Tracking", "Play", $"{_waveSource?.GetLength()}");
-
-                if (!_running) { DebugUtils.Log("Play", "WebSocket", "Websocket isn't running no broadcast sent"); return; }
-                var nowPlayingInfo = new { NowPlaying = track.ToString(), track.PlayCount, track.LastPlayed, LocalTime = dispTime };
-                string jsonMessage = JsonSerializer.Serialize(nowPlayingInfo, _jsonOption);
-                _server?.WebSocketServices["/nowplaying"].Sessions.Broadcast(jsonMessage);
-            }
+                else
+                {
+                    string message = $"Could Not find the file to play:\n{track.FilePath}";
+                    //Send a message to the user stating the file could not be found and autocloses the message box after 10 seconds
+                    ThemableMessageBox.Show(message, "Unable to Play!", MessageBoxButtons.OK, 10000, MessageBoxIcon.Information);
+                }
+            }            
         }
 
         /// <summary>
@@ -312,21 +323,24 @@ namespace MP3PlayerV2
         /// the UI to reflect the paused state.</remarks>
         private void Pause()
         {
-            if (_soundOut?.PlaybackState == PlaybackState.Paused)
-            {
-                _soundOut?.Resume();
-                this.Text = $"MP3 Player - {Cur_Track_Label.Text}";
-                PlayTimer.Start();
+            if (_soundOut != null)
                 return;
-            }
 
-            if (_soundOut?.PlaybackState == PlaybackState.Playing)
-            {
-                _soundOut?.Pause();
-                this.Text = $"MP3 Player - {Cur_Track_Label.Text} - Paused";
-                PlayTimer.Stop();
-                return;
-            }
+                if (_soundOut?.PlaybackState == PlaybackState.Paused)
+                {
+                    _soundOut?.Resume();
+                    this.Text = $"MP3 Player - {Cur_Track_Label.Text}";
+                    PlayTimer.Start();
+                    return;
+                }
+
+                if (_soundOut?.PlaybackState == PlaybackState.Playing)
+                {
+                    _soundOut?.Pause();
+                    this.Text = $"MP3 Player - {Cur_Track_Label.Text} - Paused";
+                    PlayTimer.Stop();
+                    return;
+                }            
         }
 
         /// <summary>
@@ -889,16 +903,24 @@ namespace MP3PlayerV2
             dialog.CloseAfter(1000);
         }
 #nullable disable
+                 
         /// <summary>
         /// Removes the currently selected item from the playlist.
         /// </summary>
-        /// <remarks>This method removes the item at the currently selected index in the playlist. If no
-        /// item is selected, the method performs no action.</remarks>
+        /// <remarks>If the selected item is currently being played, the method will stop playback and
+        /// reset the UI text.</remarks>
         private void RemoveItem()
-        {
+        { 
             int index = playListBox.SelectedIndex;
             if (index >= 0)
-                _playlistManager.RemoveAt(index);
+            {              
+                if (!string.IsNullOrWhiteSpace(Cur_Track_Label.Text) && Cur_Track_Label.Text.Contains(playListBox.SelectedItem.ToString()))
+                {
+                    DisposeCSCore();
+                    resetUIText();
+                }
+                _playlistManager.RemoveAt(index);                
+            }
         }
 
         /// <summary>
@@ -966,6 +988,17 @@ namespace MP3PlayerV2
         #endregion Playlist Management
 
         #region Configuration
+
+        /// <summary>
+        /// Resets the user interface text to its default state.
+        /// </summary>
+        /// <remarks>Sets the main window title to "MP3 Player" and clears the current track
+        /// label.</remarks>
+        private void resetUIText()
+        {
+            this.Text = "MP3 Player";
+            Cur_Track_Label.Text = string.Empty;
+        }
 
         /// <summary>
         /// Opens the settings window, allowing the user to modify application settings.
@@ -1170,7 +1203,7 @@ namespace MP3PlayerV2
         /// </summary>
         /// <param name="sender">The source of the event.</param>
         /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
-        private void ClearPlaylistButton_Click(object sender, EventArgs e) { _playlistManager.Clear(); }
+        private void ClearPlaylistButton_Click(object sender, EventArgs e) { DisposeCSCore(); resetUIText(); _playlistManager.Clear();  }
 
         /// <summary>
         /// Handles the Click event of the Exit button, closing the current form.
@@ -1275,13 +1308,16 @@ namespace MP3PlayerV2
         private void PlayList_DoubleClick(object sender, EventArgs e) { Play(); }
 
         /// <summary>
-        /// Handles key press events for the playlist control, triggering playback actions.
+        /// Handles key press events for the playlist, triggering actions based on the key pressed.
         /// </summary>
-        /// <remarks>Pressing the Enter key will start playback, while pressing the Space key will pause
-        /// the playback.</remarks>
+        /// <remarks>This method responds to specific key presses:  <list type="bullet">
+        /// <item><description>Pressing <see cref="Keys.Enter"/> will start playback.</description></item>
+        /// <item><description>Pressing <see cref="Keys.Space"/> will pause playback.</description></item>
+        /// <item><description>Pressing <see cref="Keys.Delete"/> will remove the selected item from the
+        /// playlist.</description></item> </list></remarks>
         /// <param name="sender">The source of the event, typically the playlist control.</param>
         /// <param name="e">A <see cref="KeyEventArgs"/> that contains the event data.</param>
-        private void PlayList_KeyDown(object sender, KeyEventArgs e) { if (e.KeyCode == Keys.Enter) Play(); if (e.KeyCode == Keys.Space) { Pause(); } }
+        private void PlayList_KeyDown(object sender, KeyEventArgs e) { if (e.KeyCode == Keys.Enter) Play(); if (e.KeyCode == Keys.Space) { Pause(); } if (e.KeyCode == Keys.Delete) { RemoveItem(); } }
 
         #endregion Listbox
 
@@ -1535,7 +1571,6 @@ namespace MP3PlayerV2
                         _commandResponce = "- Result: Next Command called";
                         this.Invoke(() => { NextTrack(); });
                         return true;
-
                     case "previous":
 
                         if (playListBox.Items.Count == 0)
@@ -1695,7 +1730,7 @@ namespace MP3PlayerV2
                             return true;
                         }
                         else { _commandResponce = "- Reason: Nothing to list, emtpty playlist"; return false; } 
-                            default:
+                    default:
                         return false;
                 }
             }

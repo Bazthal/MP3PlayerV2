@@ -3,7 +3,7 @@
 A lightweight, themable MP3 player built for streamers and power users.  
 Powered by the **BazthalLib** UI framework, which emphasizes modern design, customization, and remote integration.
 
-![Theme Preview](./assets/Main_UI.png)
+![Theme Preview](https://imgur.com/V34L196.png)
 
 ---
 
@@ -178,7 +178,7 @@ This approach supports:
 
 | Audio Device | Sorting Menu | Theme | HotPink Theme | Settings | Playback Options |
 |-------------|--------------|-------|---------------|----------|------------------|
-| ![Audio](./assets/Audio_Device_Selection.png) | ![Sort](./assets/ContextMenu_Sorting.png) | ![Main](./assets/Main_UI.png) | ![HotPink](./assets/Main_UI_HotPink.png) | ![Settings](./assets/Settings_Window.png) | ![Options](./assets/Playlist_Options.png) |
+| ![Audio](https://imgur.com/I7w1BKh.png) | ![Sort](https://imgur.com/OGDzOzs.png) | ![Main](https://imgur.com/V34L196.png) | ![HotPink](https://imgur.com/4ZK0z4b.png)| ![Settings](https://imgur.com/bJfe3tr.png) | ![Options](https://imgur.com/rJsjFmj.png) |
 
 ---
 
