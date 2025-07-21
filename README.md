@@ -134,7 +134,7 @@ SendWsCommand.exe localhost:8080/comm device "Cable Output"
 - Keys `"Command"` and `"Value"` are **case-sensitive**.
 - Values like track names or filter options (`"unplayed"`) are **not case-sensitive**.
 - Commands return human-readable responses via WebSocket for success/failure.
-- Use your `SendWsCommand.exe` in Streamer.bot or any automation tool via command-line execution.
+- Use [SendWsCommand.exe](https://github.com/Bazthal/SendWsCommand) in Streamer.bot or any automation tool via command-line execution.
 
 - OBS overlays (via JSON source or script)
 - Twitch chat bots (Streamer.bot, NodeCG, etc.)
