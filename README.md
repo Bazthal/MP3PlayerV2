@@ -134,11 +134,10 @@ SendWsCommand.exe localhost:8080/comm device "Cable Output"
 - Keys `"Command"` and `"Value"` are **case-sensitive**.
 - Values like track names or filter options (`"unplayed"`) are **not case-sensitive**.
 - Commands return human-readable responses via WebSocket for success/failure.
-- Use your `SendWsCommand.exe` in Streamer.bot or any automation tool via command-line execution.
+- Use [SendWsCommand.exe](https://github.com/Bazthal/SendWsCommand) in Streamer.bot or any automation tool via command-line execution.
 
 - OBS overlays (via JSON source or script)
 - Twitch chat bots (Streamer.bot, NodeCG, etc.)
-- Companion apps or mobile controllers
 
 ---
 
@@ -190,15 +189,6 @@ This approach supports:
 - Handles large music collections - 22k tracks tested.
 - A loading screen is displayed
 - Ideal as a background app or interactive stream overlay controller  
----
-
-## Installation
-
-Coming soon!  
-Executable + installer in development.
-
-> Source code will be released with roadmap and contribution guide once ready.
-
 ---
 
 ## Feedback & Contributions
