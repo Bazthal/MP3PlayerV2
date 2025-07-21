@@ -138,7 +138,6 @@ SendWsCommand.exe localhost:8080/comm device "Cable Output"
 
 - OBS overlays (via JSON source or script)
 - Twitch chat bots (Streamer.bot, NodeCG, etc.)
-- Companion apps or mobile controllers
 
 ---
 
