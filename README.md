@@ -3,7 +3,7 @@
 A lightweight, themable MP3 player built for streamers and power users.  
 Powered by the **BazthalLib** UI framework, which emphasizes modern design, customization, and remote integration.
 
-![Theme Preview](https://imgur.com/V34L196.png)
+![Theme Preview](https://i.imgur.com/V34L196.png)
 
 ---
 
@@ -31,6 +31,16 @@ Powered by the **BazthalLib** UI framework, which emphasizes modern design, cust
     - Title (A-Z / Z-A)
     - Play Count (High → Low / Low → High)
     - Last Played (Newest → Oldest / Oldest → Newest)
+
+### Drag and Drop Support
+- Drop folders or files directly onto the playlist section:
+  - Supports dropping your entire music collection in one go
+  - Works with both individial files and nested folder structures
+- Recursively scans all dropped folders for supported audio formats
+  - Uses the same file type filters as the Open File Dialog
+- Playlist files are loaded automaticly
+  - Supported formats are parsed and added automaticaly
+  - Note: When adding files alongside a playlist drop the playlist separately first to avoid clearing existing items.
 
 ### WebSocket Remote Control
 Seamless remote integration for streaming or automation setups. The built-in **WebSocket server** broadcasts track updates and accepts basic playback commands.
@@ -175,9 +185,9 @@ This approach supports:
 
 > Interface examples with themes, settings, and playlist options
 
-| Audio Device | Sorting Menu | Theme | HotPink Theme | Settings | Playback Options |
-|-------------|--------------|-------|---------------|----------|------------------|
-| ![Audio](https://imgur.com/I7w1BKh.png) | ![Sort](https://imgur.com/OGDzOzs.png) | ![Main](https://imgur.com/V34L196.png) | ![HotPink](https://imgur.com/4ZK0z4b.png)| ![Settings](https://imgur.com/bJfe3tr.png) | ![Options](https://imgur.com/rJsjFmj.png) |
+| Audio Device | Sorting Menu | Theme | HotPink Theme | Settings | Playback Options | Large Collection Handling |
+|--------------|--------------|-------|---------------|----------|------------------|---------------------------|
+| ![Audio](https://i.imgur.com/I7w1BKh.png) | ![Sort](https://i.imgur.com/OGDzOzs.png) | ![Main](https://i.imgur.com/V34L196.png) | ![HotPink](https://i.imgur.com/4ZK0z4b.png)| ![Settings](https://i.imgur.com/bJfe3tr.png) | ![Options](https://i.imgur.com/rJsjFmj.png) | ![Loading](https://i.imgur.com/Xeb9Fe3.png)|
 
 ---
 

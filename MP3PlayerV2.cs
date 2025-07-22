@@ -1,7 +1,8 @@
 ﻿using System.Globalization;
 using System.Text;
 using System.Text.Encodings.Web;
-using System.Text.Json; 
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using BazthalLib;
 using BazthalLib.Configuration;
 using BazthalLib.Controls;
@@ -12,6 +13,7 @@ using CSCore.Codecs;
 using CSCore.CoreAudioAPI;
 using CSCore.SoundOut;
 using CSCore.Streams;
+using CSCore.XAudio2;
 using WebSocketSharp;
 using WebSocketSharp.Server;
 
@@ -61,8 +63,8 @@ namespace MP3PlayerV2
         private int _webSocketPort = 8080;
         private string _webSocketEndPoint = "/";
         private bool _autoStart = false;
-        private static string _commandResponce = string.Empty;
 
+        private static string _commandResponse = string.Empty;
         private WebSocketServer _server;
         private Thread _serverThread;
         private bool _running = false;
@@ -72,11 +74,14 @@ namespace MP3PlayerV2
         private readonly PlaylistManager _playlistManager = new();
 
         //Configuration
-        private readonly JsonSerializerOptions _jsonOption = new () { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+        private static readonly JsonSerializerOptions _jsonOption = new () { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
         internal AppSettings _settings;
         private JSON<AppSettings> _jsonConfig;
         private readonly string _customThemeConfig = "Config/CustomTheme.json";
         private readonly string _settingsConfig = "Config/Settings.json";
+
+        private static readonly HashSet<string> SupportedAudioExtensions = new(StringComparer.OrdinalIgnoreCase) { ".flac", ".m4a", ".mp2", ".mp3", ".wav", ".wma" };
+        private static readonly HashSet<string> SupportedPlaylistExtensions = new(StringComparer.OrdinalIgnoreCase) { ".m3u", ".m3u8" };
 
         #endregion Fields
 
@@ -110,6 +115,8 @@ namespace MP3PlayerV2
                 playListBox.Items.Clear();
                 foreach (var track in _playlistManager.Tracks)
                     playListBox.Items.Add(track); // Track.ToString()
+                if (playListBox.Items.Count <= 0)
+                    playListBox.SelectedIndex = -1;
             };
 
             if (_autoStart)
@@ -154,7 +161,7 @@ namespace MP3PlayerV2
         /// system.</remarks>
         /// <param name="filePath">The path to the audio file to be played. The file must exist at the specified path.</param>
         /// <param name="deviceID">The optional ID of the audio output device. If not specified, the default audio device is used.</param>
-        private bool InitilizeCSCore(string filePath, string deviceID = "")
+        private bool InitializeCSCore(string filePath, string deviceID = "")
         {
             DisposeCSCore(); // Clean up before reinitializing
 
@@ -275,13 +282,13 @@ namespace MP3PlayerV2
 
                     var track = _playlistManager.Get(playListBox.SelectedIndex);
                     _currentTrack = track.FilePath;
-                if (InitilizeCSCore(track.FilePath, deviceID))
+                if (InitializeCSCore(track.FilePath, deviceID))
                 {
                     Cur_Track_Label.Text = track.ToString();
 
                     this.Text = $"MP3 Player - {Cur_Track_Label.Text}";
 
-                    //Configure Tackbar to Music File
+                    //Configure Trackbar to Music File
                     Tracking_Slider.Maximum = (int)_waveSource?.GetLength().TotalSeconds;
                     Tracking_Slider.Value = 0;
 
@@ -560,7 +567,7 @@ namespace MP3PlayerV2
             _soundOut?.Stop();
             DisposeCSCore();
 
-            InitilizeCSCore(_currentTrack, deviceId);
+            InitializeCSCore(_currentTrack, deviceId);
 
             _waveSource.Position = currentPosition;
             _soundOut.Play();
@@ -616,6 +623,37 @@ namespace MP3PlayerV2
 
             return list[_rng.Next(list.Count)];
         }
+
+        /// <summary>
+        /// Searches for audio files within the specified folder and its subdirectories.
+        /// </summary>
+        /// <remarks>The method searches recursively through all subdirectories of the specified folder.
+        /// Only files with extensions that are included in the <c>SupportedAudioExtensions</c> collection are
+        /// considered audio files.</remarks>
+        /// <param name="folderPath">The path to the folder where the search for audio files will be conducted. Must be a valid directory path.</param>
+        /// <returns>A list of file paths representing the audio files found. Returns an empty list if no audio files are found
+        /// or if the directory does not exist.</returns>
+        private static List<string>FindAudioFile(string folderPath)
+        {
+            var list = new List<string>();
+
+            try
+            {
+                if (!Directory.Exists(folderPath))
+                    return list;
+
+                foreach (var file in Directory.EnumerateFiles(folderPath, "*.*" , SearchOption.AllDirectories))
+                {
+                    if (SupportedAudioExtensions.Contains(Path.GetExtension(file)))
+                    {
+                        list.Add(file);
+                    }
+                }
+            }
+            catch (Exception ex) { DebugUtils.Log("Drop Folder", "Recursive Search", $"Error scanning folder '{folderPath}': {ex.Message}"); }
+
+            return list;
+        }
 #nullable disable
         /// <summary>
         /// Counts the number of tracks in the playlist that have not been played.
@@ -627,8 +665,7 @@ namespace MP3PlayerV2
         {
             var cachedlist = _playlistManager.Tracks.ToList();
             var count = cachedlist.Where(t => (t.PlayCount ?? 0) == 0).ToList().Count;
-
-             _commandResponce = $"- Result: {count} unplayed tracks found in the playlist"; 
+            BuildResponseMessage(true, $"{count} Unplayed track(s) found in the playlist");
         }
                 
         /// <summary>
@@ -655,8 +692,7 @@ namespace MP3PlayerV2
 
                 }
             }
-            _commandResponce = $"- Result: {count} matching item(s) found in playlist";
-
+            BuildResponseMessage(true, $"{count} matching item(s) found in the playlist");
         }
 
         /// <summary>
@@ -683,15 +719,14 @@ namespace MP3PlayerV2
                     {
                         playListBox.SelectedIndex = index;
                         playListBox.EnsureVisible(index);
-                        _commandResponce = $"- Result: Match Found: {track}";
+                        BuildResponseMessage(true,  $"Match found: {track}");
                         Stop();
                         Play();
                         return;
                     }
                 }
             }
-
-            _commandResponce = "- Result: No matching item found in playlist";
+            BuildResponseMessage(true, $"No matching item found in the playlist");
         }
 
         /// <summary>
@@ -792,19 +827,24 @@ namespace MP3PlayerV2
             playListBox.EnsureVisible(Number);
         }
 
-        /// <summary>
-        /// Asynchronously adds selected music files to the playlist.
-        /// </summary>
-        /// <remarks>This method allows the user to select music files and adds them to the playlist. It
-        /// processes files concurrently, utilizing available CPU cores for efficiency. The method updates a progress
-        /// dialog to inform the user of the current progress and estimated time of completion. If a file has been
-        /// previously added, it retains its play statistics.</remarks>
-#nullable enable
-        private async void AddItem()
-        {
-            var files = Files.ChooseFiles("", "Music Files|*.mp3;*.ogg;*.mp1;*.mp2;*.wav;*.aiff;");
-            if (files == null || files.Length == 0) return;
 
+        /// <summary>
+        /// Adds music tracks to the playlist from the specified files or prompts the user to select files if none are
+        /// provided.
+        /// </summary>
+        /// <remarks>This method processes each file to extract track metadata and adds the resulting
+        /// tracks to the playlist.  It utilizes concurrent processing to improve performance, with a maximum
+        /// concurrency level based on the number of processor cores.</remarks>
+        /// <param name="droppedItems">An optional array of file paths to add. If null or empty, the user will be prompted to select files.</param>
+#nullable enable
+        private async void AddItem(string[]? droppedItems = null)
+        {
+            string[]? files = droppedItems;
+            if (files == null || files.Length == 0)
+            {
+                files = Files.ChooseFiles("", "Music Files|*.flac;*.m4a;*.mp2;*.mp3;*.wav;*.wma");
+                if (files == null || files.Length == 0) return;
+            }
             var dialog = new ThemableProcessingDialog("Adding tracks...");
             dialog.Show(this);
 
@@ -917,7 +957,7 @@ namespace MP3PlayerV2
                 if (!string.IsNullOrWhiteSpace(Cur_Track_Label.Text) && Cur_Track_Label.Text.Contains(playListBox.SelectedItem.ToString()))
                 {
                     DisposeCSCore();
-                    resetUIText();
+                    ResetUIText();
                 }
                 _playlistManager.RemoveAt(index);                
             }
@@ -944,20 +984,26 @@ namespace MP3PlayerV2
         }
 
         /// <summary>
-        /// Loads a playlist from a selected M3U file and updates the playlist display.
+        /// Loads a playlist from a specified file or prompts the user to select a file if none is provided.
         /// </summary>
-        /// <remarks>This method opens a file dialog for the user to select an M3U playlist file.  If a
-        /// valid file is selected, it loads the playlist asynchronously and updates  the UI to reflect the loaded
-        /// playlist. The first item in the playlist is  automatically selected if the playlist is not empty.</remarks>
-        private async void LoadPlaylist()
+        /// <remarks>This method updates the playlist display and attempts to restore the previously
+        /// selected item if it exists in the new playlist.</remarks>
+        /// <param name="droppedItem">The path to the playlist file to load. If <see langword="null"/> or empty, the user will be prompted to
+        /// select a file.</param>
+        private async void LoadPlaylist(string droppedItem = null)
         {
             string lastItem = null;
             if (playListBox.SelectedIndex != -1)
             { 
                 lastItem = playListBox.SelectedItem.ToString();
             }
-            string loadFileName = Files.ChooseFile("", "M3U Playlists|*.m3u;*.m3u8", "Open Playlist");
-            if (string.IsNullOrWhiteSpace(loadFileName)) return;
+
+            string loadFileName = droppedItem;
+            if (loadFileName == null || loadFileName.Length == 0)
+            {
+                loadFileName = Files.ChooseFile("", "M3U Playlists|*.m3u;*.m3u8", "Open Playlist");
+                if (string.IsNullOrWhiteSpace(loadFileName)) return;
+            }
 
             var dialog = new ThemableProcessingDialog("Loading Playlist...");
             dialog.Show(this);
@@ -994,7 +1040,7 @@ namespace MP3PlayerV2
         /// </summary>
         /// <remarks>Sets the main window title to "MP3 Player" and clears the current track
         /// label.</remarks>
-        private void resetUIText()
+        private void ResetUIText()
         {
             this.Text = "MP3 Player";
             Cur_Track_Label.Text = string.Empty;
@@ -1203,7 +1249,7 @@ namespace MP3PlayerV2
         /// </summary>
         /// <param name="sender">The source of the event.</param>
         /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
-        private void ClearPlaylistButton_Click(object sender, EventArgs e) { DisposeCSCore(); resetUIText(); _playlistManager.Clear();  }
+        private void ClearPlaylistButton_Click(object sender, EventArgs e) { DisposeCSCore(); ResetUIText(); _playlistManager.Clear();  }
 
         /// <summary>
         /// Handles the Click event of the Exit button, closing the current form.
@@ -1308,16 +1354,89 @@ namespace MP3PlayerV2
         private void PlayList_DoubleClick(object sender, EventArgs e) { Play(); }
 
         /// <summary>
-        /// Handles key press events for the playlist, triggering actions based on the key pressed.
+        /// Handles key press events for the playlist, enabling playback control through keyboard shortcuts.
         /// </summary>
-        /// <remarks>This method responds to specific key presses:  <list type="bullet">
-        /// <item><description>Pressing <see cref="Keys.Enter"/> will start playback.</description></item>
-        /// <item><description>Pressing <see cref="Keys.Space"/> will pause playback.</description></item>
-        /// <item><description>Pressing <see cref="Keys.Delete"/> will remove the selected item from the
-        /// playlist.</description></item> </list></remarks>
+        /// <remarks>This method allows users to control playback using specific keys when the playlist
+        /// control is focused. Supported keys include Enter for play, Space for pause, Delete for removing an item, and
+        /// media keys for track navigation and playback control.</remarks>
         /// <param name="sender">The source of the event, typically the playlist control.</param>
-        /// <param name="e">A <see cref="KeyEventArgs"/> that contains the event data.</param>
-        private void PlayList_KeyDown(object sender, KeyEventArgs e) { if (e.KeyCode == Keys.Enter) Play(); if (e.KeyCode == Keys.Space) { Pause(); } if (e.KeyCode == Keys.Delete) { RemoveItem(); } }
+        /// <param name="e">A <see cref="KeyEventArgs"/> that contains the event data, including the key pressed.</param>
+        private void PlayList_KeyDown(object sender, KeyEventArgs e) 
+        {
+            //These reqire the listbox control to be focused to accept these controls
+            switch (e.KeyCode)
+            {
+                case Keys.Enter: { Play(); break; }
+                case Keys.Space: { Pause(); break; }
+                case Keys.Delete: { RemoveItem(); break;}
+                case Keys.MediaNextTrack: { NextTrack(); break; }
+                case Keys.MediaPreviousTrack: { PreviousTrack(); break; }
+                case Keys.MediaPlayPause: { Pause(); break; }
+                case Keys.MediaStop: { Stop(); break; }
+            }
+}
+
+        /// <summary>
+        /// Handles the drag enter event for the playlist, determining the effect of the drag-and-drop operation.
+        /// </summary>
+        /// <remarks>Sets the drag-and-drop effect to <see cref="DragDropEffects.Copy"/> if the data being
+        /// dragged is a file drop. Otherwise, sets the effect to <see cref="DragDropEffects.None"/>.</remarks>
+        /// <param name="sender">The source of the event, typically the control onto which the items are being dragged.</param>
+        /// <param name="e">The <see cref="DragEventArgs"/> instance containing the event data, including the data being dragged.</param>
+        private void PlayList_DragEnter(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            { e.Effect = DragDropEffects.Copy; }
+            else { e.Effect = DragDropEffects.None; }
+        }
+
+        /// <summary>
+        /// Handles the drag-and-drop operation for the playlist, adding valid audio files or loading playlists.
+        /// </summary>
+        /// <remarks>This method processes files and directories dropped onto the playlist. It adds valid
+        /// audio files to the playlist or loads a playlist file if no audio files are present. Supported file types are
+        /// determined by the <c>SupportedAudioExtensions</c> and <c>SupportedPlaylistExtensions</c>
+        /// collections.</remarks>
+        /// <param name="sender">The source of the drag event.</param>
+        /// <param name="e">The <see cref="DragEventArgs"/> instance containing the event data.</param>
+        private void PlayList_DragDrop(object sender, DragEventArgs e) 
+        {
+
+            if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
+
+            string[] droppedFiles = (string[])e.Data.GetData(DataFormats.FileDrop);
+            List<string> validAudioFiles = [];
+
+            foreach (var path in droppedFiles)
+            {
+                if (Directory.Exists(path))
+                {
+                    validAudioFiles.AddRange(FindAudioFile(path));
+                }
+                else if (File.Exists(path))
+                    {
+                    string ext = Path.GetExtension(path).ToLowerInvariant();
+                    if (SupportedAudioExtensions.Contains(ext))
+                    {
+                        validAudioFiles.Add(path);
+                    }
+                    else if (SupportedPlaylistExtensions.Contains(ext))
+                    {
+                        if (validAudioFiles.Count <= 0)
+                        {
+                            LoadPlaylist(path);
+                            return;
+                        }
+                    }
+                }
+            }
+
+            if (validAudioFiles.Count > 0)
+            {
+                AddItem([.. validAudioFiles]);
+            }
+
+        }
 
         #endregion Listbox
 
@@ -1441,8 +1560,9 @@ namespace MP3PlayerV2
                     DebugUtils.Log("CommandExecuter - Websocket", "OnMessage", "Received Message: " + e.Data);
                     if (this.Context.WebSocket.ReadyState == WebSocketState.Open)
                     {
-                        Send($"Command Executed: {e.Data} {_commandResponce}");
-                        DebugUtils.Log("CommandExecuter - Websocket", "OnMessage", "Sent comfirmation response message");
+                        Send(_commandResponse);
+                        //Send($"Command Executed: {e.Data} {_commandResponce}");
+                        DebugUtils.Log("CommandExecuter - Websocket", "OnMessage", "Sent confirmation response message");
                     }
                     else
                     {
@@ -1454,7 +1574,8 @@ namespace MP3PlayerV2
                     DebugUtils.Log("CommandExecuter - Websocket", "OnMessage", "Received Message: " + e.Data);
                     if (this.Context.WebSocket.ReadyState == WebSocketState.Open)
                     {
-                        Send($"Command Failed: {e.Data} {_commandResponce}");
+                        Send(_commandResponse);
+                        //Send($"Command Failed: {e.Data} {_commandResponce}");
                         DebugUtils.Log("CommandExecuter - Websocket", "OnMessage", "Sent failure response message");
                     }
                     else
@@ -1464,6 +1585,24 @@ namespace MP3PlayerV2
                 }
             }
         }
+
+        /// <summary>
+        /// Constructs a JSON response message indicating the result of an operation.
+        /// </summary>
+        /// <param name="success">A boolean value indicating whether the operation was successful. <see langword="true"/> for success;
+        /// otherwise, <see langword="false"/>.</param>
+        /// <param name="message">A descriptive message providing additional information about the operation's result.</param>
+        /// <param name="data">Optional. Additional data to include in the response. Can be <see langword="null"/> if no additional data is
+        /// provided.</param>
+        private static void BuildResponseMessage(bool success, string message, string data = null)
+        {
+            string Result = success ? "Success" : "Fail";
+
+            var msg = new { Result, Message = message, Data = data };
+
+            _commandResponse = JsonSerializer.Serialize(msg, _jsonOption);
+
+            }
 
         /// <summary>
         /// Starts the WebSocket server at the specified address and port.
@@ -1565,100 +1704,111 @@ namespace MP3PlayerV2
                     case "next":
                         if (playListBox.Items.Count == 0)
                         {
-                            _commandResponce = "- Reason: Playlist is empty";
+                            BuildResponseMessage(false, "Playlist is empty");
                             return false;
                         }
-                        _commandResponce = "- Result: Next Command called";
+                        BuildResponseMessage(true, "Next Command Called skip counter incremented");
                         this.Invoke(() => { NextTrack(); });
                         return true;
                     case "previous":
 
                         if (playListBox.Items.Count == 0)
                         {
-                            _commandResponce = "- Reason: Playlist is empty";
+                            BuildResponseMessage(false, "Playlist is empty");
                             return false;
                         }
 
                         this.Invoke(() => { PreviousTrack(); });
-                        _commandResponce = "- Result: Previous Command called";
+                        BuildResponseMessage(true, "Previous Command Called");
 
                         return true;
                     case "volume":
-                        if (int.TryParse(cmd.Value, out int vol))
+                        if (!string.IsNullOrWhiteSpace(cmd.Value))
                         {
-                            _volumeLevel = vol;
-                            _commandResponce = $"- Result: Volume set to {vol}%";
-                            this.Invoke(() => { SetVolume(); });
-                            return true;
+                            if (int.TryParse(cmd.Value, out int vol))
+                            {
+                                _volumeLevel = vol;
+                                BuildResponseMessage(true, $"Volume set to {vol}");
+                                this.Invoke(() => { SetVolume(); });
+                                return true;
+                            }
+                            else
+                            {
+                                BuildResponseMessage(false, $"Couldn't parse [{cmd.Value}] as a number");
+                                return false;
+                            }
                         }
                         else
-                        {
-                            _commandResponce = $"- Reason: Could not parse [{cmd.Value}] as a number";
-                            return false;
-                        }
+                        { BuildResponseMessage(true, $"Volume is currently: {_volumeLevel}%"); return false; }
                     case "play":
                         if (playListBox.Items.Count == 0)
                         {
-                            _commandResponce = "- Reason: Playlist is empty";
+                            BuildResponseMessage(false, "Playlist is empty");
                             return false;
                         }
-                        _commandResponce = "- Result: Play Command called";
+                        BuildResponseMessage(true, "Play Command Called");
                         this.Invoke(() => { Play(); });
                         return true;
                     case "pause":
-                        _commandResponce = "- Result: Pause Command called";
+                        BuildResponseMessage(true, "Pause Command Called");
                         this.Invoke(() => { Pause(); });
                         return true;
                     case "stop":
-                        _commandResponce = "- Result: Stop Command called";
+                        BuildResponseMessage(true, "Stop Command Called");
                         this.Invoke(() => { Stop(); });
                         return true;
                     case "device":
                         if (AudioDeviceList.Items.Count <= 1)
                         {
-                            _commandResponce = "- Reason: Device list is empty or only has the one output device";
+                            BuildResponseMessage(false, "Device list is empty or only has the one output device");
                             return false;
                         }
-
-                        for (int i = 0; i < AudioDeviceList.Items.Count - 1; i++)
+                        if (!string.IsNullOrWhiteSpace(cmd.Value))
                         {
-                            if (AudioDeviceList.Items[i].ToString().Contains(cmd.Value, StringComparison.InvariantCultureIgnoreCase))
+                            for (int i = 0; i < AudioDeviceList.Items.Count - 1; i++)
                             {
-                                AudioDeviceList.SelectedIndex = i;
-                                _commandResponce = $"- Rusult: Audio device has been changed to {cmd.Value}";
-                                break;
+                                if (AudioDeviceList.Items[i].ToString().Contains(cmd.Value, StringComparison.InvariantCultureIgnoreCase))
+                                {
+                                    AudioDeviceList.SelectedIndex = i;
+                                    BuildResponseMessage(true, $"Audio Device has been change to {AudioDeviceList.SelectedItem}");
+                                    break;
+                                }
                             }
                         }
+                        else
+                        { BuildResponseMessage(false, "Value not set cancelling selection"); return false; }
                         return true;
                     case "playlistmode":
                         bool _found = false;
 
-                        for (int i = 0; i < playList_Options.Items.Count; i++)
+                        if (!string.IsNullOrWhiteSpace(cmd.Value))
                         {
-                            if (playList_Options.Items[i].ToString().Contains(cmd.Value, StringComparison.InvariantCultureIgnoreCase))
+                            for (int i = 0; i < playList_Options.Items.Count; i++)
                             {
-                                playList_Options.SelectedIndex = i;
-                                _found = true;
-                                _commandResponce = $"- Result: Mode set to {playList_Options.SelectedItem}";
+                                if (playList_Options.Items[i].ToString().Contains(cmd.Value, StringComparison.InvariantCultureIgnoreCase))
+                                {
+                                    playList_Options.SelectedIndex = i;
+                                    _found = true;
+                                    BuildResponseMessage(true, $"Mode set to {playList_Options.SelectedItem}");
+                                }
                             }
+                            if (!_found) { BuildResponseMessage(false, $"Option not found {cmd.Value}"); return false; }
                         }
-                        if (!_found) { _commandResponce = $"- Reason: Option is not found - {cmd.Value}"; return false; }
-
+                        else
+                        { BuildResponseMessage(false, "Value not set cancelling selection"); return false; }
                         return true;
                     case "nowplaying":
                         if (_soundOut == null || (_soundOut?.PlaybackState == PlaybackState.Stopped || _soundOut?.PlaybackState == PlaybackState.Paused))
-                        { _commandResponce = "- Reason: Not currently playing "; return false; }
-
-                        if (_soundOut?.PlaybackState == PlaybackState.Playing) { _commandResponce = $"-Result: Playing - {Cur_Track_Label.Text}"; }
-
+                        {BuildResponseMessage(false, "Not currently playing"); return false; }
+                        if (_soundOut?.PlaybackState == PlaybackState.Playing) { BuildResponseMessage(true, $"{_playlistManager.Get(playListBox.SelectedIndex)}");}                        
                         return true;
                     case "shuffle":
                         if (playListBox.Items.Count <= 1)
                         {
-                            _commandResponce = "- Reason: Playlist is empty or only has the one track";
+                            BuildResponseMessage(false, "Playlist is either empty or has only 1 track");
                             return false;
                         }
-                        _commandResponce = "- Rusult: Playlist has been shuffled";
+                        BuildResponseMessage(true, "Playlist has been shuffled");
                         this.Invoke(() => { ShufflePlaylist(); });
                         return true;
                     case "select":
@@ -1666,7 +1816,7 @@ namespace MP3PlayerV2
                         {
                             if (playListBox.Items.Count == 0)
                             {
-                                _commandResponce = "- Reason: Playlist is empty";
+                                BuildResponseMessage(false, "Playlist is empty");
                                 return false;
                             }
 
@@ -1680,27 +1830,33 @@ namespace MP3PlayerV2
                             {
                                 this.Invoke(() => { SelectTrackByName(cmd.Value); });
                             }
-                            _commandResponce = $"- Result: {playListBox.SelectedItem}";
+                            BuildResponseMessage(true, $"Selected {playListBox.SelectedItem}");
 
                             if (cmd.Value.Equals("random", StringComparison.InvariantCultureIgnoreCase))
                             {                               
                                     this.Invoke(() => { GetRandomTrack(); Stop(); Play(); });
-                                    _commandResponce = $"- Result: Random Track Selected: {playListBox.SelectedItem}";
+                                BuildResponseMessage(true, $"Random Track Selected {playListBox.SelectedItem}");
                             }
                         }
                         else
-                        { _commandResponce = "- Reason: Value set canceling selection"; return false; }
+                        {BuildResponseMessage(false, "Value not set cancelling selection"); return false; }
                         return true;
                     case "count":
-                        if (!string.IsNullOrWhiteSpace(cmd.Value))
+                        if (playListBox.Items.Count == 0 )
                         {
-                            if (cmd.Value.Equals("unplayed", StringComparison.InvariantCultureIgnoreCase))
-                            { this.Invoke(() => { CountUnplayed(); }); }
-                            else
-                            {
-                                this.Invoke(() => { CountTrackByName(cmd.Value); });
-                            }
+                                BuildResponseMessage(false, "Playlist is empty");
                         }
+                        if (!string.IsNullOrWhiteSpace(cmd.Value))
+                            {
+                                if (cmd.Value.Equals("unplayed", StringComparison.InvariantCultureIgnoreCase))
+                                { this.Invoke(() => { CountUnplayed(); }); }
+                                else
+                                {
+                                    this.Invoke(() => { CountTrackByName(cmd.Value); });
+                                }
+                            }
+                        else
+                        { BuildResponseMessage(false, "Value not set cancelling count"); return false; }
                         return true;
                     case "list":
                         if (playListBox.Items.Count >= 1)
@@ -1725,11 +1881,13 @@ namespace MP3PlayerV2
                                         { matches.Add(track); }
                                     }
                                 }
-                                _commandResponce = JsonSerializer.Serialize(matches,_jsonOption);
+                                _commandResponse = JsonSerializer.Serialize(matches,_jsonOption);
                             }
+                            else
+                            { BuildResponseMessage(false, "Value not set cancelling listing"); return false; }
                             return true;
                         }
-                        else { _commandResponce = "- Reason: Nothing to list, emtpty playlist"; return false; } 
+                        else { BuildResponseMessage(false, "Playlist is empty"); return false; } 
                     default:
                         return false;
                 }
@@ -1737,7 +1895,7 @@ namespace MP3PlayerV2
             catch (Exception ex)
             {
                 DebugUtils.Log("Command Executor", "Exception", "Failed to parse JSON command: " + ex.Message);
-                _commandResponce = "- Reason: Failed to parse command check format and try again";
+                BuildResponseMessage(false, "Failed to parse command, check format and try again", ex.Message);
                 return false;
             }
         }

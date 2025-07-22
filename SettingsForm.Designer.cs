@@ -47,7 +47,6 @@
             // 
             themeColorsSetter1.AutoLoadConfig = true;
             themeColorsSetter1.ConfigFilePath = "Config\\CustomTheme.json";
-            themeColorsSetter1.ForeThemeColor = Color.Blue;
             themeColorsSetter1.Location = new Point(11, 13);
             themeColorsSetter1.MaximumSize = new Size(350, 250);
             themeColorsSetter1.MinimumSize = new Size(350, 250);

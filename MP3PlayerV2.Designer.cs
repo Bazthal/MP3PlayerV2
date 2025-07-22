@@ -233,6 +233,7 @@
             // 
             // playListBox
             // 
+            playListBox.AllowDrop = true;
             playListBox.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             playListBox.BorderColor = SystemColors.ActiveBorder;
             playListBox.ContextMenuStrip = cms_Main;
@@ -245,6 +246,8 @@
             playListBox.SelectedItemForeColor = SystemColors.HighlightText;
             playListBox.Size = new Size(353, 316);
             playListBox.TabIndex = 0;
+            playListBox.DragDrop += PlayList_DragDrop;
+            playListBox.DragEnter += PlayList_DragEnter;
             playListBox.DoubleClick += PlayList_DoubleClick;
             playListBox.KeyDown += PlayList_KeyDown;
             // 
