@@ -78,12 +78,12 @@ Seamless remote integration for streaming or automation setups. The built-in **W
 
 ### CLI Format
 ```bash
-SendWsCommand.exe <host:port/endpoint> <command> <value>
+SendWsCommand.exe <address=host:port/endpoint> <command=command> <value=value> <order=order>
 ```
 
 Example:
 ```bash
-SendWsCommand.exe localhost:8080/comm select random
+SendWsCommand.exe address=localhost:8080/comm command=select value=random
 ```
 
 ## Playback Commands
