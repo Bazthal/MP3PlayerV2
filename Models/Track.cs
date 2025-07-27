@@ -1,6 +1,6 @@
 ﻿using LiteDB;
 
-namespace MP3PlayerV2
+namespace MP3PlayerV2.Models
 {
     /// <summary>
     /// Represents a music track with metadata such as title, artist, and playback statistics.

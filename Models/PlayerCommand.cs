@@ -1,4 +1,4 @@
-﻿namespace MP3PlayerV2
+﻿namespace MP3PlayerV2.Models
 {
     /// <summary>
     /// Represents a command issued by a player, including an optional value associated with the command.
@@ -9,6 +9,7 @@
     {
         public string Command { get; set; } = string.Empty;
         public string? Value { get; set; }
+        public string? Order { get; set; }
 
     }
 }

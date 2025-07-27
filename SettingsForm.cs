@@ -1,4 +1,6 @@
-﻿namespace MP3PlayerV2
+﻿using MP3PlayerV2.Models;
+
+namespace MP3PlayerV2
 {
 
     /// <summary>

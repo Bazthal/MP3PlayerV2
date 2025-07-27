@@ -13,7 +13,9 @@ using CSCore.Codecs;
 using CSCore.CoreAudioAPI;
 using CSCore.SoundOut;
 using CSCore.Streams;
-using CSCore.XAudio2;
+using MP3PlayerV2.Commands;
+using MP3PlayerV2.Models;
+using MP3PlayerV2.Services;
 using WebSocketSharp;
 using WebSocketSharp.Server;
 
@@ -69,12 +71,15 @@ namespace MP3PlayerV2
         private Thread _serverThread;
         private bool _running = false;
         public bool GetWssStatus { get => _running; }
+        private readonly CommandDispatcher _dispatcher = new();
 
         private static readonly Random _rng = new();
         private readonly PlaylistManager _playlistManager = new();
+        private readonly Stack<int> _trackHistory = new();
 
         //Configuration
         private static readonly JsonSerializerOptions _jsonOption = new () { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+        private static readonly JsonSerializerOptions _caseInsensitiveOptions = new(){PropertyNameCaseInsensitive = true};
         internal AppSettings _settings;
         private JSON<AppSettings> _jsonConfig;
         private readonly string _customThemeConfig = "Config/CustomTheme.json";
@@ -83,6 +88,7 @@ namespace MP3PlayerV2
         private static readonly HashSet<string> SupportedAudioExtensions = new(StringComparer.OrdinalIgnoreCase) { ".flac", ".m4a", ".mp2", ".mp3", ".wav", ".wma" };
         private static readonly HashSet<string> SupportedPlaylistExtensions = new(StringComparer.OrdinalIgnoreCase) { ".m3u", ".m3u8" };
 
+        internal int VolumeLevel { get => _volumeLevel;}
         #endregion Fields
 
         #region Contructor
@@ -118,7 +124,7 @@ namespace MP3PlayerV2
                 if (playListBox.Items.Count <= 0)
                     playListBox.SelectedIndex = -1;
             };
-
+        
             if (_autoStart)
             {
                 StartServerThread();
@@ -192,7 +198,7 @@ namespace MP3PlayerV2
 
             DebugUtils.Log("Initilize CSCore", Name, $"Device ID: {deviceID}");
             _soundOut.Initialize(_waveSource);
-            SetVolume();
+            SetVolume(_volumeLevel);
             _soundOut.Stopped += OnSoundOutStopped;
             return true;
         }
@@ -330,7 +336,7 @@ namespace MP3PlayerV2
         /// the UI to reflect the paused state.</remarks>
         private void Pause()
         {
-            if (_soundOut != null)
+            if (_soundOut == null)
                 return;
 
                 if (_soundOut?.PlaybackState == PlaybackState.Paused)
@@ -392,6 +398,11 @@ namespace MP3PlayerV2
                         DebugUtils.Log("Play", "Save Stats", $"Saving to data base error: {ex.Message}");
                     }
                 }
+            }
+
+            if (playListBox.SelectedIndex >= 0)
+            {
+                _trackHistory.Push(playListBox.SelectedIndex);
             }
 
             bool endOfPlaylist = false;
@@ -458,16 +469,33 @@ namespace MP3PlayerV2
         }
 
         /// <summary>
-        /// Moves to the previous track in the playlist and starts playback.
+        /// Moves to the previous track in the playlist or restarts the current track if it has been playing for more
+        /// than 5 seconds.
         /// </summary>
-        /// <remarks>If the current track is the first in the playlist, this method will restart the
-        /// playback of the first track.</remarks>
+        /// <remarks>If the current track has been playing for more than 5 seconds, it will be restarted.
+        /// Otherwise, the method will attempt to move to the previous track in the history or the playlist.</remarks>
         private void PreviousTrack()
         {
-            if (playListBox.SelectedIndex >= 1)
+            if (_waveSource != null && _waveSource.GetPosition().TotalSeconds > 5)
+            {
+                _waveSource.SetPosition(TimeSpan.Zero);
+                return;
+            }
+
+            if (_trackHistory.Count > 0)
+            {
+                int previousIndex = _trackHistory.Pop();
+                playListBox.SelectedIndex = previousIndex;
+            }
+            else if (playListBox.SelectedIndex > 0)
             {
                 playListBox.SelectedIndex--;
             }
+            else
+            {
+                return;
+            }
+
             playListBox.EnsureVisible(playListBox.SelectedIndex);
             _soundOut?.Stop();
             Play();
@@ -479,12 +507,14 @@ namespace MP3PlayerV2
         /// </summary>
         /// <remarks>This method adjusts the volume of the audio source based on the current volume level.
         /// The volume is clamped between 0.0 (mute) and 1.0 (full volume).</remarks>
-        private void SetVolume()
+        private void SetVolume(int vol)
         {
+            _volumeLevel = vol;
             if (_volumeSource != null)
-                _volumeSource.Volume = Math.Clamp(_volumeLevel / 100f, 0.0f, 1.0f); // 0 = mute, 1 = full
+                _volumeSource.Volume = Math.Clamp(vol / 100f, 0.0f, 1.0f); // 0 = mute, 1 = full
                                                                                     //Set Volume slider value to match current volume level 
             Volume_Slider.Value = (int)_volumeLevel;
+
         }
 
         /// <summary>
@@ -846,6 +876,12 @@ namespace MP3PlayerV2
                 if (files == null || files.Length == 0) return;
             }
             var dialog = new ThemableProcessingDialog("Adding tracks...");
+            dialog.StartPosition = FormStartPosition.Manual;
+            dialog.Location = new(
+                this.Location.X + (this.Width - dialog.Width) / 2,
+                this.Location.Y + (this.Height - dialog.Height) / 2
+            );
+
             dialog.Show(this);
 
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
@@ -863,10 +899,15 @@ namespace MP3PlayerV2
 
                 await semaphore.WaitAsync(); // wait for a slot
 
+                if (dialog.Token.IsCancellationRequested)
+                    break;
+
                 var task = Task.Run(() =>
                 {
                     try
                     {
+                        if (dialog.Token.IsCancellationRequested)
+                            return (Index: index, Track: null);
                         var tagFile = TagLib.File.Create(file);
                         var track = new Track
                         {
@@ -974,7 +1015,13 @@ namespace MP3PlayerV2
             string saveFileName = Files.SaveFile("", "M3U Playlists|*.m3u", "Save Playlist");
             if (string.IsNullOrWhiteSpace(saveFileName)) return;
 
-            var dialog = new ThemableProcessingDialog("Saving Playlist...");
+            var dialog = new ThemableProcessingDialog("Saving Playlist...", showProgress: true, showCancelButton: false);
+            dialog.StartPosition = FormStartPosition.Manual;
+            dialog.Location = new(
+                this.Location.X + (this.Width - dialog.Width) / 2,
+                this.Location.Y + (this.Height - dialog.Height) / 2
+            );
+            
             dialog.Show(this);
 
             await Task.Run(() => _playlistManager.SaveToM3U(saveFileName));
@@ -1005,10 +1052,30 @@ namespace MP3PlayerV2
                 if (string.IsNullOrWhiteSpace(loadFileName)) return;
             }
 
-            var dialog = new ThemableProcessingDialog("Loading Playlist...");
+            var dialog = new ThemableProcessingDialog("Loading Playlist");
+            dialog.StartPosition = FormStartPosition.Manual;
+            dialog.Location = new(
+                this.Location.X + (this.Width - dialog.Width) / 2,
+                this.Location.Y + (this.Height - dialog.Height) / 2
+            );
             dialog.Show(this);
 
-            await Task.Run(() => _playlistManager.LoadFromM3U(loadFileName));
+            try
+            {
+                await Task.Run(() => _playlistManager.LoadFromM3U(loadFileName, (current, total, eta) =>
+                {
+                    dialog.Invoke(() => dialog.SetProgress("Track", current, total, eta));
+                }, dialog.Token));
+            }
+            catch (OperationCanceledException)
+            {
+                dialog.SetCompleted("Cancelled by user.");
+            }
+            finally
+            {
+                dialog.CloseAfter(1000);
+            }
+
 
             if (playListBox.Items.Count > 0)
             {
@@ -1119,7 +1186,7 @@ namespace MP3PlayerV2
                 _webSocketEndPoint = _settings.WebSocketEndPoint;
                 _autoStart = _settings.AutoStart;
 
-                SetVolume();
+                SetVolume(_volumeLevel);
                 
 
             }
@@ -1313,17 +1380,17 @@ namespace MP3PlayerV2
         #region Sliders 
 
         /// <summary>
-            /// Handles the completion of a volume slider scroll event.
-            /// </summary>
-            /// <remarks>This method updates the internal volume level based on the slider's value, applies
-            /// the new volume setting, and saves the updated settings. It also logs the current volume level for debugging
-            /// purposes.</remarks>
-            /// <param name="sender">The source of the event, typically the volume slider control.</param>
-            /// <param name="e">An <see cref="EventArgs"/> that contains no event data.</param>
+        /// Handles the completion of a volume slider scroll event.
+        /// </summary>
+        /// <remarks>This method updates the internal volume level based on the slider's value, applies
+        /// the new volume setting, and saves the updated settings. It also logs the current volume level for debugging
+        /// purposes.</remarks>
+        /// <param name="sender">The source of the event, typically the volume slider control.</param>
+        /// <param name="e">An <see cref="EventArgs"/> that contains no event data.</param>
         private void Volume_ScrollCompleted(object sender, EventArgs e)
         {
             _volumeLevel = Volume_Slider.Value;
-            SetVolume();
+            SetVolume(_volumeLevel);
             SaveSettings();
             DebugUtils.Log("Volume Setter", this.AccessibleName, $"Volume Level {Volume_Slider.Value / 100f}");
         }
@@ -1516,13 +1583,14 @@ namespace MP3PlayerV2
 
         #region Websocket integration
 
+
         /// <summary>
         /// Represents a WebSocket behavior for broadcasting messages to connected clients.
         /// </summary>
         /// <remarks>This class extends the <see cref="WebSocketBehavior"/> to provide functionality for sending broadcast
         /// messages to clients upon connection. It sends a welcome message to the client when the WebSocket connection is
         /// successfully opened.</remarks>
-        public class Broadcast : WebSocketBehavior
+        internal class Broadcast : WebSocketBehavior
         {
             protected override void OnOpen()
             {
@@ -1547,20 +1615,23 @@ namespace MP3PlayerV2
         /// connection. Upon receiving a message, it attempts to handle the message as a command using the <see
         /// cref="MP3PlayerV2"/> instance. It logs the process and sends a response indicating whether the command was
         /// executed successfully or failed.</remarks>
-        public class CommandExecutor : WebSocketBehavior
+        internal class CommandExecutor : WebSocketBehavior
         {
             protected override void OnMessage(MessageEventArgs e)
             {
                 var form = MP3PlayerV2.Instance;
                 if (form == null) return;
 
-                bool succeeded = form.HandleCommand(e.Data);
-                if (succeeded)
+               form.HandleCommand(e.Data);
+               
+                        Sessions.Broadcast(_commandResponse);
+
+                /* if (succeeded)
                 {
                     DebugUtils.Log("CommandExecuter - Websocket", "OnMessage", "Received Message: " + e.Data);
                     if (this.Context.WebSocket.ReadyState == WebSocketState.Open)
                     {
-                        Send(_commandResponse);
+                        Sessions.Broadcast(_commandResponse);
                         //Send($"Command Executed: {e.Data} {_commandResponce}");
                         DebugUtils.Log("CommandExecuter - Websocket", "OnMessage", "Sent confirmation response message");
                     }
@@ -1574,7 +1645,7 @@ namespace MP3PlayerV2
                     DebugUtils.Log("CommandExecuter - Websocket", "OnMessage", "Received Message: " + e.Data);
                     if (this.Context.WebSocket.ReadyState == WebSocketState.Open)
                     {
-                        Send(_commandResponse);
+                        Sessions.Broadcast(_commandResponse);
                         //Send($"Command Failed: {e.Data} {_commandResponce}");
                         DebugUtils.Log("CommandExecuter - Websocket", "OnMessage", "Sent failure response message");
                     }
@@ -1582,7 +1653,7 @@ namespace MP3PlayerV2
                     {
                         DebugUtils.Log("CommandExecuter - Websocket", "OnMessage", "Unable to send message back");
                     }
-                }
+                }*/
             }
         }
 
@@ -1594,7 +1665,7 @@ namespace MP3PlayerV2
         /// <param name="message">A descriptive message providing additional information about the operation's result.</param>
         /// <param name="data">Optional. Additional data to include in the response. Can be <see langword="null"/> if no additional data is
         /// provided.</param>
-        private static void BuildResponseMessage(bool success, string message, string data = null)
+        internal static void BuildResponseMessage(bool success, string message, string data = null)
         {
             string Result = success ? "Success" : "Fail";
 
@@ -1660,7 +1731,7 @@ namespace MP3PlayerV2
         /// <remarks>This method initializes and starts a server thread using the specified WebSocket
         /// address and port. The server runs in the background, allowing the main application to continue
         /// executing.</remarks>
-        public void StartServerThread()
+        internal void StartServerThread()
         {
             if (_running) return;
             _serverThread = new Thread(() => StartServer(_settings.WebSocketAddress, _settings.WebSocketPort.ToString())) { IsBackground = true };
@@ -1674,230 +1745,72 @@ namespace MP3PlayerV2
         /// </summary>
         /// <remarks>This method sets the running state to false, waits for the server thread to
         /// terminate,  and stops the server. Ensure that the server is running before calling this method.</remarks>
-        public void StopServerThread()
+        internal void StopServerThread()
         {
             _running = false;
             _serverThread?.Join(); // Wait for the thread to exit
             _server?.Stop();
         }
-
+        
         /// <summary>
-        /// Processes a command represented as a JSON string and executes the corresponding action.
+        /// Processes a command message and executes the corresponding actions within the application context.
         /// </summary>
-        /// <remarks>The method supports various commands such as "next", "previous", "volume", "play",
-        /// "pause", "stop", "device", "playlistmode", "nowplaying", "shuffle", "select", "count", and "list". Each
-        /// command may have specific preconditions, such as a non-empty playlist for "next" and "previous" commands.
-        /// The method updates a response message indicating the result or reason for failure, which can be used for
-        /// logging or user feedback.</remarks>
-        /// <param name="message">A JSON string representing the command to be executed. The command should include a command type and any
-        /// necessary parameters.</param>
-        /// <returns><see langword="true"/> if the command was successfully processed and executed; otherwise, <see
+        /// <remarks>The method utilizes a <see cref="CommandContext"/> to provide various operations
+        /// related to playlist management, audio device selection, and playback control. The context is used to
+        /// interpret and execute the command specified by the <paramref name="message"/>.</remarks>
+        /// <param name="message">The command message to be handled. This message determines the actions to be executed.</param>
+        /// <returns><see langword="true"/> if the command was successfully dispatched and handled; otherwise, <see
         /// langword="false"/>.</returns>
-        private bool HandleCommand(string message)
+        internal bool HandleCommand(string message)
         {
-            try
+            var context = new CommandContext
             {
-                var cmd = JsonSerializer.Deserialize<PlayerCommand>(message);
+                Invoke = action => this.Invoke(action),
+                Respond = BuildResponseMessage,
+                GetPlaylistCount = () => playListBox.Items.Count,
+                Play = Play,
+                Pause = Pause,
+                Stop = Stop,
+                Next = (automatic) => NextTrack(automatic),
+                Previous = PreviousTrack,
+                GetVolumeLevel = _volumeLevel,
+                Volume = SetVolume,
 
-                switch (cmd.Command.ToLowerInvariant())
-                {
-                    case "next":
-                        if (playListBox.Items.Count == 0)
-                        {
-                            BuildResponseMessage(false, "Playlist is empty");
-                            return false;
-                        }
-                        BuildResponseMessage(true, "Next Command Called skip counter incremented");
-                        this.Invoke(() => { NextTrack(); });
-                        return true;
-                    case "previous":
+                Shuffle = ShufflePlaylist,
+                CountByName = CountTrackByName,
+                CountUnplayed = CountUnplayed,
 
-                        if (playListBox.Items.Count == 0)
-                        {
-                            BuildResponseMessage(false, "Playlist is empty");
-                            return false;
-                        }
+                GetAudioDeviceCount = () => AudioDeviceList.Items.Count,
+                GetAudioDeviceNameAt = i => AudioDeviceList.Items[i]?.ToString() ?? string.Empty,
+                SetAudioDeviceIndex = i => AudioDeviceList.SelectedIndex = i,
+                GetSelectedAudioDevice = () => AudioDeviceList.SelectedItem?.ToString() ?? "Unknown",
 
-                        this.Invoke(() => { PreviousTrack(); });
-                        BuildResponseMessage(true, "Previous Command Called");
+                GetPlaylistModeCount = () => playList_Options.Items.Count,
+                GetPlaylistModeNameAt = i => playList_Options.Items[i]?.ToString() ?? "",
+                SetPlaylistModeIndex = i => playList_Options.SelectedIndex = i,
+                GetSelectedPlaylistMode = () => playList_Options.SelectedItem?.ToString() ?? "",
 
-                        return true;
-                    case "volume":
-                        if (!string.IsNullOrWhiteSpace(cmd.Value))
-                        {
-                            if (int.TryParse(cmd.Value, out int vol))
-                            {
-                                _volumeLevel = vol;
-                                BuildResponseMessage(true, $"Volume set to {vol}");
-                                this.Invoke(() => { SetVolume(); });
-                                return true;
-                            }
-                            else
-                            {
-                                BuildResponseMessage(false, $"Couldn't parse [{cmd.Value}] as a number");
-                                return false;
-                            }
-                        }
-                        else
-                        { BuildResponseMessage(true, $"Volume is currently: {_volumeLevel}%"); return false; }
-                    case "play":
-                        if (playListBox.Items.Count == 0)
-                        {
-                            BuildResponseMessage(false, "Playlist is empty");
-                            return false;
-                        }
-                        BuildResponseMessage(true, "Play Command Called");
-                        this.Invoke(() => { Play(); });
-                        return true;
-                    case "pause":
-                        BuildResponseMessage(true, "Pause Command Called");
-                        this.Invoke(() => { Pause(); });
-                        return true;
-                    case "stop":
-                        BuildResponseMessage(true, "Stop Command Called");
-                        this.Invoke(() => { Stop(); });
-                        return true;
-                    case "device":
-                        if (AudioDeviceList.Items.Count <= 1)
-                        {
-                            BuildResponseMessage(false, "Device list is empty or only has the one output device");
-                            return false;
-                        }
-                        if (!string.IsNullOrWhiteSpace(cmd.Value))
-                        {
-                            for (int i = 0; i < AudioDeviceList.Items.Count - 1; i++)
-                            {
-                                if (AudioDeviceList.Items[i].ToString().Contains(cmd.Value, StringComparison.InvariantCultureIgnoreCase))
-                                {
-                                    AudioDeviceList.SelectedIndex = i;
-                                    BuildResponseMessage(true, $"Audio Device has been change to {AudioDeviceList.SelectedItem}");
-                                    break;
-                                }
-                            }
-                        }
-                        else
-                        { BuildResponseMessage(false, "Value not set cancelling selection"); return false; }
-                        return true;
-                    case "playlistmode":
-                        bool _found = false;
+                SelectTrackByIndex = i => playListBox.SelectedIndex = i,
+                EnsureTrackVisible = () => playListBox.EnsureVisible(playListBox.SelectedIndex),
+                SelectTrackByName = name => SelectTrackByName(name),
+                GetSelectedTrackName = () => playListBox.SelectedItem?.ToString() ?? "Unknown",
+                SelectRandomTrack = () => GetRandomTrack(),
 
-                        if (!string.IsNullOrWhiteSpace(cmd.Value))
-                        {
-                            for (int i = 0; i < playList_Options.Items.Count; i++)
-                            {
-                                if (playList_Options.Items[i].ToString().Contains(cmd.Value, StringComparison.InvariantCultureIgnoreCase))
-                                {
-                                    playList_Options.SelectedIndex = i;
-                                    _found = true;
-                                    BuildResponseMessage(true, $"Mode set to {playList_Options.SelectedItem}");
-                                }
-                            }
-                            if (!_found) { BuildResponseMessage(false, $"Option not found {cmd.Value}"); return false; }
-                        }
-                        else
-                        { BuildResponseMessage(false, "Value not set cancelling selection"); return false; }
-                        return true;
-                    case "nowplaying":
-                        if (_soundOut == null || (_soundOut?.PlaybackState == PlaybackState.Stopped || _soundOut?.PlaybackState == PlaybackState.Paused))
-                        {BuildResponseMessage(false, "Not currently playing"); return false; }
-                        if (_soundOut?.PlaybackState == PlaybackState.Playing) { BuildResponseMessage(true, $"{_playlistManager.Get(playListBox.SelectedIndex)}");}                        
-                        return true;
-                    case "shuffle":
-                        if (playListBox.Items.Count <= 1)
-                        {
-                            BuildResponseMessage(false, "Playlist is either empty or has only 1 track");
-                            return false;
-                        }
-                        BuildResponseMessage(true, "Playlist has been shuffled");
-                        this.Invoke(() => { ShufflePlaylist(); });
-                        return true;
-                    case "select":
-                        if (!string.IsNullOrWhiteSpace(cmd.Value))
-                        {
-                            if (playListBox.Items.Count == 0)
-                            {
-                                BuildResponseMessage(false, "Playlist is empty");
-                                return false;
-                            }
+                IsPlaylistEmpty = () => playListBox.Items.Count == 0,
+                GetPlaylistTracks = () => _playlistManager.Tracks,
+                NormalizeText = s => NormalizeText(s), // your existing method
+                SetCommandResponseJson = json => _commandResponse = json,
+                JsonOptions = _jsonOption,
 
-                            if (int.TryParse(cmd.Value, out int index))
-                            {
-                                playListBox.SelectedIndex = index;
-                                playListBox.EnsureVisible(index);
-                                this.Invoke(() => { Play(); });
-                            }
-                            else
-                            {
-                                this.Invoke(() => { SelectTrackByName(cmd.Value); });
-                            }
-                            BuildResponseMessage(true, $"Selected {playListBox.SelectedItem}");
 
-                            if (cmd.Value.Equals("random", StringComparison.InvariantCultureIgnoreCase))
-                            {                               
-                                    this.Invoke(() => { GetRandomTrack(); Stop(); Play(); });
-                                BuildResponseMessage(true, $"Random Track Selected {playListBox.SelectedItem}");
-                            }
-                        }
-                        else
-                        {BuildResponseMessage(false, "Value not set cancelling selection"); return false; }
-                        return true;
-                    case "count":
-                        if (playListBox.Items.Count == 0 )
-                        {
-                                BuildResponseMessage(false, "Playlist is empty");
-                        }
-                        if (!string.IsNullOrWhiteSpace(cmd.Value))
-                            {
-                                if (cmd.Value.Equals("unplayed", StringComparison.InvariantCultureIgnoreCase))
-                                { this.Invoke(() => { CountUnplayed(); }); }
-                                else
-                                {
-                                    this.Invoke(() => { CountTrackByName(cmd.Value); });
-                                }
-                            }
-                        else
-                        { BuildResponseMessage(false, "Value not set cancelling count"); return false; }
-                        return true;
-                    case "list":
-                        if (playListBox.Items.Count >= 1)
-                        {
-                            if (!string.IsNullOrWhiteSpace(cmd.Value))
-                            {
-                                var templist = _playlistManager.Tracks;
-                                var matches = new List<Track>();
+                GetPlaybackState = () => _soundOut?.PlaybackState ?? PlaybackState.Stopped,
+                GetCurrentTrackIndex = () => playListBox.SelectedIndex,
+                GetCurrentTrack = Cur_Track_Label.Text,
 
-                                if (cmd.Value.Equals("unplayed", StringComparison.InvariantCultureIgnoreCase))
-                                {
-                                    foreach (var unplayed in templist)
-                                    {
-                                        if ((unplayed.PlayCount ?? 0) == 0) { matches.Add(unplayed); } 
-                                    } 
-                                }
-                                else {
-                                    foreach (var track in templist)
-                                    {
-                                        
-                                        if (NormalizeText(track.ToString().ToLowerInvariant()).Contains(NormalizeText(cmd.Value.ToLowerInvariant())))
-                                        { matches.Add(track); }
-                                    }
-                                }
-                                _commandResponse = JsonSerializer.Serialize(matches,_jsonOption);
-                            }
-                            else
-                            { BuildResponseMessage(false, "Value not set cancelling listing"); return false; }
-                            return true;
-                        }
-                        else { BuildResponseMessage(false, "Playlist is empty"); return false; } 
-                    default:
-                        return false;
-                }
-            }
-            catch (Exception ex)
-            {
-                DebugUtils.Log("Command Executor", "Exception", "Failed to parse JSON command: " + ex.Message);
-                BuildResponseMessage(false, "Failed to parse command, check format and try again", ex.Message);
-                return false;
-            }
+                SortPlaylist = (selector, desc) => SortPlaylist(selector, desc),
+            };
+
+            return _dispatcher.Dispatch(message, context, _caseInsensitiveOptions);
         }
         #endregion Websocket integration
 

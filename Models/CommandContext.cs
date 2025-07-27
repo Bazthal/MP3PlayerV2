@@ -1,0 +1,54 @@
+﻿
+using System.Text.Json;
+using CSCore.SoundOut;
+
+namespace MP3PlayerV2.Models
+{
+    /// <summary>
+    /// Provides a context for executing commands related to audio playback and playlist management.
+    /// </summary>
+    /// <remarks>The <see cref="CommandContext"/> class encapsulates various actions and functions that allow
+    /// interaction with audio devices, playlists, and playback controls. It provides methods to query and manipulate
+    /// the current state of audio playback, including selecting tracks, adjusting volume, and managing playlists. This
+    /// class is designed to be used in environments where command-based control of audio playback is
+    /// required.</remarks>
+    public class CommandContext
+    {
+        public Action<Action> Invoke {  get; set; }
+        public Action<bool, string, string?> Respond { get; set; }
+        public Func<int> GetPlaylistCount { get; set; }
+        public Func<int> GetAudioDeviceCount { get; set; }
+        public Func<int, string> GetAudioDeviceNameAt { get; set; }
+        public Action<int> SetAudioDeviceIndex { get; set; }
+        public Func<string> GetSelectedAudioDevice { get; set; }
+        public Func<int> GetPlaylistModeCount { get; set; }
+        public Func<int, string> GetPlaylistModeNameAt { get; set; }
+        public Action<int> SetPlaylistModeIndex { get; set; }
+        public Func<string> GetSelectedPlaylistMode { get; set; }
+        public Func<PlaybackState> GetPlaybackState { get; set; }
+        public Func<int> GetCurrentTrackIndex { get; set; }
+        public string GetCurrentTrack { get; set; }
+        public int GetVolumeLevel { get; set; }
+        public Action<int> SelectTrackByIndex { get; set; }
+        public Action EnsureTrackVisible { get; set; }
+        public Action<string> SelectTrackByName { get; set; }
+        public Func<string> GetSelectedTrackName { get; set; }
+        public Action SelectRandomTrack { get; set; }
+        public Func<bool> IsPlaylistEmpty { get; set; }
+        public Func<IEnumerable<Track>> GetPlaylistTracks { get; set; }
+        public Func<string, string> NormalizeText { get; set; }
+        public Action<string> SetCommandResponseJson { get; set; }
+        public JsonSerializerOptions JsonOptions { get; set; }
+        public Action Play { get; set; }
+        public Action Pause { get; set; }
+        public Action Stop { get; set; }
+        public Action<bool> Next { get; set; }
+        public Action Previous { get; set; }
+        public Action<int> Volume { get; set; }
+        public Action Shuffle {  get; set; }
+        public Action<Func<Track, object>, bool> SortPlaylist {  get; set; }
+        public Action CountUnplayed { get; set; }
+        public Action<string> CountByName { get; set; }
+
+    }
+}

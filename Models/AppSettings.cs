@@ -1,4 +1,4 @@
-﻿namespace MP3PlayerV2
+﻿namespace MP3PlayerV2.Models
 {
     /// <summary>
     /// Represents the application settings for configuring audio and network parameters.

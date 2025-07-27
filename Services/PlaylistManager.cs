@@ -1,7 +1,9 @@
-﻿using System.Text;
+﻿using System.Diagnostics;
+using System.Text;
 using BazthalLib;
+using MP3PlayerV2.Models;
 
-namespace MP3PlayerV2
+namespace MP3PlayerV2.Services
 {
     /// <summary>
     /// Manages a collection of tracks in a playlist, providing functionality to add, remove, shuffle, and persist
@@ -194,13 +196,17 @@ namespace MP3PlayerV2
         /// and the system default for ".m3u".</param>
         /// <returns>A list of <see cref="Track"/> objects representing the tracks in the playlist. The list is empty if no valid
         /// tracks are found.</returns>
-        public async Task<List<Track>> LoadFromM3U(string filePath)
+        public async Task<List<Track>> LoadFromM3U(string filePath,Action<int, int, string?>? reportProgress = null,CancellationToken cancellationToken = default)
         {
             var ext = Path.GetExtension(filePath).ToLowerInvariant();
             var encoding = ext == ".m3u8" ? Encoding.UTF8 : Encoding.Default;
             var lines = File.ReadAllLines(filePath, encoding);
 
             var paths = new List<string>();
+
+
+            int completed = 0;
+            var stopwatch = Stopwatch.StartNew();
 
             for (int i = 0; i < lines.Length; i++)
             {
@@ -209,7 +215,7 @@ namespace MP3PlayerV2
 
                 if (line.StartsWith("#EXTINF:", StringComparison.OrdinalIgnoreCase))
                 {
-                    string? path = (i + 1 < lines.Length) ? NormalizePath(lines[++i].Trim()) : null;
+                    string? path = i + 1 < lines.Length ? NormalizePath(lines[++i].Trim()) : null;
                     if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
                         paths.Add(path);
                 }
@@ -220,6 +226,8 @@ namespace MP3PlayerV2
                         paths.Add(path);
                 }
             }
+                        int total = paths.Count;
+
             int maxConcurrency = Math.Min(Environment.ProcessorCount * 2, 20);
             var semaphore = new SemaphoreSlim(maxConcurrency);
             var tasks = new List<Task<(int Index, Track? Track)>>();
@@ -231,10 +239,18 @@ namespace MP3PlayerV2
 
                 await semaphore.WaitAsync();
 
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    semaphore.Release(); // Don't forget to release it!
+                    break;
+                }
+
                 var task = Task.Run(() =>
                 {
                     try
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
+
                         var tagFile = TagLib.File.Create(path);
                         var track = new Track
                         {
@@ -242,15 +258,21 @@ namespace MP3PlayerV2
                             Title = !string.IsNullOrEmpty(tagFile.Tag.Title)
                                 ? tagFile.Tag.Title
                                 : Path.GetFileNameWithoutExtension(path),
-                            Artist = (tagFile.Tag.Performers != null && tagFile.Tag.Performers.Length > 0)
+                            Artist = tagFile.Tag.Performers?.Length > 0
                                 ? string.Join("/", tagFile.Tag.Performers)
                                 : "Unknown Artist",
                             Album = !string.IsNullOrEmpty(tagFile.Tag.Album) ? tagFile.Tag.Album : "",
                             DurationSeconds = (int)tagFile.Properties.Duration.TotalSeconds,
                             Hash = TrackDatabase.ComputeFileHash(path)
                         };
-                        
+
                         return (Index: index, Track: track);
+                    }
+                    catch (OperationCanceledException)
+                    {
+#nullable disable
+                        return (Index: index, Track: null);
+#nullable enable
                     }
                     catch (Exception ex)
                     {
@@ -261,6 +283,20 @@ namespace MP3PlayerV2
                     }
                     finally
                     {
+                        int current = Interlocked.Increment(ref completed);
+
+                        string? etaText = null;
+                        if (current % 50 == 0 || current == total)
+                        {
+                            double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
+                            double avgPerFile = elapsedSeconds / current;
+                            int remaining = total - current;
+                            double etaSeconds = avgPerFile * remaining;
+
+                            etaText = $"ETA: {TimeSpan.FromSeconds(etaSeconds):mm\\:ss}";
+                        }
+
+                        reportProgress?.Invoke(current, total, etaText);
                         semaphore.Release();
                     }
                 });

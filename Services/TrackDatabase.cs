@@ -1,8 +1,9 @@
 ﻿using System;
 using BazthalLib;
 using LiteDB;
+using MP3PlayerV2.Models;
 
-namespace MP3PlayerV2
+namespace MP3PlayerV2.Services
 {
 
     public static class TrackDatabase
