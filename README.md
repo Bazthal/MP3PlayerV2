@@ -73,7 +73,7 @@ Seamless remote integration for streaming or automation setups. The built-in **W
 
 ### JSON Format
 ```json
-{ "Command": "command_name", "Value": "optional_value" }
+{ "Command": "command_name", "Value": "optional_value", "Order": "optional_order"}
 ```
 
 ### CLI Format
@@ -130,19 +130,19 @@ SendWsCommand.exe localhost:8080/comm select random
 ## Example CLI Usage
 
 ```bash
-SendWsCommand.exe localhost:8080/comm play
-SendWsCommand.exe localhost:8080/comm pause
-SendWsCommand.exe localhost:8080/comm select "Under Pressure"
-SendWsCommand.exe localhost:8080/comm playlistmode "Smart Shuffle"
-SendWsCommand.exe localhost:8080/comm device "Cable Output"
+SendWsCommand.exe address=localhost:8080/comm command=play
+SendWsCommand.exe address=localhost:8080/comm command=pause
+SendWsCommand.exe address=localhost:8080/comm command=select value="Under Pressure"
+SendWsCommand.exe address=localhost:8080/comm command=playlistmode value="Smart Shuffle"
+SendWsCommand.exe address=localhost:8080/comm command=device value="Cable Output"
+SendWsCommand.exe address=localhost:8080/comm command=sort value=artist order=ascending
 ```
 
 ---
 
 ## Notes
 
-- Keys `"Command"` and `"Value"` are **case-sensitive**.
-- Values like track names or filter options (`"unplayed"`) are **not case-sensitive**.
+- Keys `"Command"`, `"Value"`and `Order` are  not **case-sensitive**.
 - Commands return human-readable responses via WebSocket for success/failure.
 - Use [SendWsCommand.exe](https://github.com/Bazthal/SendWsCommand) in Streamer.bot or any automation tool via command-line execution.
 

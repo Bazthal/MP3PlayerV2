@@ -2,8 +2,8 @@
 
 ## 1.1.2
 
-- Fixed pause not funtioning from a inverted check
-- Updated BazthalLib to version 1.1.2 to resolve trackbar resizing issues.
+- Fixed pause not functioning from a inverted check
+- Updated BazthalLib to version 1.1.3 to resolve trackbar resizing issues.
 - Introduced a new `sort` command in command handling logic.
 - Enhanced `PlayerCommand` class with an optional `Order` property.
 - Improved JSON deserialization to be case-insensitive for better command handling.
@@ -15,8 +15,8 @@
 - Modified `SetVolume` to accept a volume parameter
 - Updated WebSocket command handling to broadcast responses to all clients.
   - This should allow for streamer.bot WebSocket Client message trigger automation based on commands
-- The Proccessing window would now correct display at the center of the player where ever it gets moved to
-  - Loading process for playlist and adding items can now be canceled and would add whats proccessed already
+- The Processing window would now correct display at the centre of the player where ever it gets moved to
+  - Loading process for playlist and adding items can now be cancelled and would add what's processed already
 
 ## 1.0.2
 - Implemented drag-and-drop functionality for the playlist, allowing users to add files and folders directly.
