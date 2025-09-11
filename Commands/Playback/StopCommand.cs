@@ -12,7 +12,7 @@ namespace MP3PlayerV2.Commands.Playback
     {
         public bool Execute(PlayerCommand cmd, CommandContext ctx)
         {
-                ctx.Respond(true, "Stop Command Called", null);
+            ctx.Respond(true, "Stop Command Called", null);
             ctx.Invoke(() => ctx.Stop());
             return true;
         }

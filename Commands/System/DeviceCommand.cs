@@ -27,20 +27,20 @@ namespace MP3PlayerV2.Commands.System
             }
 
             for (int i = 0; i < ctx.GetAudioDeviceCount(); i++)
+            {
+                string name = ctx.GetAudioDeviceNameAt(i);
+                if (name.Contains(cmd.Value, StringComparison.InvariantCultureIgnoreCase))
                 {
-                    string name = ctx.GetAudioDeviceNameAt(i);
-                    if (name.Contains(cmd.Value, StringComparison.InvariantCultureIgnoreCase))
-                    {
-                        ctx.SetAudioDeviceIndex(i);
-                        string selected = ctx.GetSelectedAudioDevice();
-                        ctx.Respond(true, $"Audio Device has been changed to '{selected}'", null);
-                        return true;
-                    }
+                    ctx.SetAudioDeviceIndex(i);
+                    string selected = ctx.GetSelectedAudioDevice();
+                    ctx.Respond(true, $"Audio Device has been changed to '{selected}'", null);
+                    return true;
                 }
+            }
 
-                ctx.Respond(false, "No matching audio device found", null);
-                return false;
-            
+            ctx.Respond(false, "No matching audio device found", null);
+            return false;
+
 
 
         }

@@ -35,11 +35,11 @@ Powered by the **BazthalLib** UI framework, which emphasizes modern design, cust
 ### Drag and Drop Support
 - Drop folders or files directly onto the playlist section:
   - Supports dropping your entire music collection in one go
-  - Works with both individial files and nested folder structures
+  - Works with both individual files and nested folder structures
 - Recursively scans all dropped folders for supported audio formats
   - Uses the same file type filters as the Open File Dialog
-- Playlist files are loaded automaticly
-  - Supported formats are parsed and added automaticaly
+- Playlist files are loaded automatically
+  - Supported formats are parsed and added automatically
   - Note: When adding files alongside a playlist drop the playlist separately first to avoid clearing existing items.
 
 ### WebSocket Remote Control
@@ -74,6 +74,7 @@ Seamless remote integration for streaming or automation setups. The built-in **W
 ### JSON Format
 ```json
 { "Command": "command_name", "Value": "optional_value", "Order": "optional_order"}
+{ "Command": "command_name", "Value": "optional_value", "Range": "optional_range"}
 ```
 
 ### CLI Format
@@ -161,7 +162,7 @@ Theme every aspect of the UI:
   - Updates on runtime
   - Light / Dark switching is based on system color mode at app startup
 	- Default colors were set for this in mind
-  - Automatic saving/loading of theme configuration with fallback to default style if currupted.
+  - Automatic saving/loading of theme configuration with fallback to default style if corrupted.
 - Backed by the **BazthalLib** theming system for dynamic and reusable styles
 
 ---
@@ -225,6 +226,6 @@ Please consult their respective licenses for more information
 
 ##  Powered By
 
-- **BazthalLib** – Custom themable controls and reusable component system  
+- **[BazthalLib](https://github.com/Bazthal/BazthalLib)** – Custom themable controls and reusable component system  
 - Designed for integration with tools like **Streamer.bot** and **Twitch chat**  
 - Built to grow with your streaming setup

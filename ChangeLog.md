@@ -1,5 +1,41 @@
 ﻿# MP3PlayerV2 ChangeLog
 
+## 1.2.0 - Massive Overhaul
+
+### Major Features & Enhancements
+- **Track Queuing:** Added `QueueTrackByName` method to queue tracks by name. Queued tracks now play first, regardless of playlist mode.
+- **Advanced Command Handling:** Enhanced `CommandContext` with new actions and properties for advanced track queuing. Introduced `QueueCommand` and `ResetStatsCommand` for queue management and statistics reset.
+- **UI Improvements:** Added menu options to reset track statistics. Moved `EnsureVisible` logic to the selected index changed event for consistent UI behavior.
+- **Database Overhaul:**
+  - Improved `TrackDatabase.cs` with methods to check track existence and reset statistics.
+  - Changed track ID from hash to GUID for faster loading (new database is incompatible with previous versions).
+  - Added import method to migrate existing play data into the new database (import before playing music files to avoid duplicates).
+  - Implemented asynchronous database writes via `LiteDbWriteQueue`.
+  - Database file is now stored in a subfolder to keep the root directory clear.
+  - Added `PruneOldDataAsync` to automatically remove outdated entries if tracks have not been updated within a specified number of days.
+- **Track History:** Updated track history to use a limited stack of track models instead of integers for improved navigation and data integrity.
+- **Track Ratings:** Introduced `TrackRatingManager` for automated track preference ratings based on playback interaction.
+- **Command Enhancements:** The `Count` and `List` commands now support counting and listing tracks by their rating status, including liked, disliked, unplayed, and total tracks.
+- When loading large music collections (100+ tracks), garbage collection is triggered to prevent excessive memory usage.
+
+### Playback & Audio
+- Skipping the last few seconds of a track no longer counts as a valid skip.
+- Playback now resumes without always restarting the current track.
+- Fixed `PlayTimer` to restart correctly when playback resumes.
+- Switching the audio output device now restarts the playback timer, ensuring accurate timing if the timer was previously paused.
+
+### File & Instance Management
+- Player can now load files by dragging them onto the executable or by providing them as command line arguments.
+  - Paths now use the application's startup directory, ensuring files are referenced with absolute paths.
+- Enforces single-instance operation (when not debugging), forwarding any launch arguments to the first instance for seamless file association support.
+- When launched via file association, the player will automatically start playback: the first track for playlists, and the most recently added track for individual music files.
+
+### Miscellaneous
+- Corrected command names and response messages across multiple commands.
+- Commands now support an optional `Range` parameter for batch operations.
+- Added a new application icon designed to complement the default dark theme.
+- Added an option in the settings window to restore all settings to their default values.
+
 ## 1.1.2
 
 - Fixed pause not functioning from a inverted check

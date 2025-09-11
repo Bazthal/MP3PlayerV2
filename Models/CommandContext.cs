@@ -1,6 +1,5 @@
-﻿
-using System.Text.Json;
-using CSCore.SoundOut;
+﻿using CSCore.SoundOut;
+using System.Text.RegularExpressions;
 
 namespace MP3PlayerV2.Models
 {
@@ -14,8 +13,8 @@ namespace MP3PlayerV2.Models
     /// required.</remarks>
     public class CommandContext
     {
-        public Action<Action> Invoke {  get; set; }
-        public Action<bool, string, string?> Respond { get; set; }
+        public Action<Action> Invoke { get; set; }
+        public Action<bool, string, object?> Respond { get; set; }
         public Func<int> GetPlaylistCount { get; set; }
         public Func<int> GetAudioDeviceCount { get; set; }
         public Func<int, string> GetAudioDeviceNameAt { get; set; }
@@ -26,29 +25,30 @@ namespace MP3PlayerV2.Models
         public Action<int> SetPlaylistModeIndex { get; set; }
         public Func<string> GetSelectedPlaylistMode { get; set; }
         public Func<PlaybackState> GetPlaybackState { get; set; }
-        public Func<int> GetCurrentTrackIndex { get; set; }
         public string GetCurrentTrack { get; set; }
         public int GetVolumeLevel { get; set; }
+        public Func<string, Regex> BuildSearchRegex { get; set; }
         public Action<int> SelectTrackByIndex { get; set; }
-        public Action EnsureTrackVisible { get; set; }
         public Action<string> SelectTrackByName { get; set; }
         public Func<string> GetSelectedTrackName { get; set; }
+        public Action<string> QueueTrackByName { get; set; }
+        public Queue<string> GetQueuedTracks { get; set; }
+        public Action ClearQueue { get; set; }
         public Action SelectRandomTrack { get; set; }
+
         public Func<bool> IsPlaylistEmpty { get; set; }
         public Func<IEnumerable<Track>> GetPlaylistTracks { get; set; }
         public Func<string, string> NormalizeText { get; set; }
-        public Action<string> SetCommandResponseJson { get; set; }
-        public JsonSerializerOptions JsonOptions { get; set; }
         public Action Play { get; set; }
         public Action Pause { get; set; }
         public Action Stop { get; set; }
         public Action<bool> Next { get; set; }
         public Action Previous { get; set; }
         public Action<int> Volume { get; set; }
-        public Action Shuffle {  get; set; }
-        public Action<Func<Track, object>, bool> SortPlaylist {  get; set; }
-        public Action CountUnplayed { get; set; }
+        public Action Shuffle { get; set; }
+        public Action<Func<Track, object>, bool> SortPlaylist { get; set; }
+        public Action<string> CountByPlayData { get; set; }
         public Action<string> CountByName { get; set; }
-
+        public Action<string, string> ResetStat { get; set; }
     }
 }

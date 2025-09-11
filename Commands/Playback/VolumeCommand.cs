@@ -20,7 +20,7 @@ namespace MP3PlayerV2.Commands.Playback
 
             if (int.TryParse(cmd.Value, out int vol))
             {
-                ctx.Respond(true, $"Volume set to {vol}", null);
+                ctx.Respond(true, $"Volume set to {vol}%", null);
                 ctx.Invoke(() => ctx.Volume(vol));
                 return true;
             }

@@ -10,7 +10,7 @@ namespace MP3PlayerV2.Commands.System
     /// <remarks>This command checks the current playback state and responds with the name of the track if it
     /// is playing. If the playback is stopped or paused, it responds with a message indicating that nothing is
     /// currently playing.</remarks>
-    [Command("mowplaying")]
+    [Command("nowplaying")]
     public class NowPlayingCommand : ICommandHandler
     {
         public bool Execute(PlayerCommand cmd, CommandContext ctx)
@@ -25,9 +25,20 @@ namespace MP3PlayerV2.Commands.System
 
             if (state == PlaybackState.Playing)
             {
-                int index = ctx.GetCurrentTrackIndex();
+                var tracks = ctx.GetPlaylistTracks();
                 string name = ctx.GetCurrentTrack;
-                ctx.Respond(true, name, null);
+
+                foreach (var track in tracks)
+                {
+                    if (track.ToString() == name)
+                    {
+                        var dispTime = $"{track.LastPlayed?.ToLocalTime().ToShortDateString()}-{track.LastPlayed?.ToLocalTime().ToShortTimeString()}";
+                        var nowPlayingInfo = new { NowPlaying = track.ToString(), track.PlayCount, track.LastPlayed, LocalTime = dispTime };
+                        ctx.Respond(true, "Now Playing", nowPlayingInfo);
+                    }
+                }
+                //  ctx.Respond(true, name, null);
+
                 return true;
             }
 

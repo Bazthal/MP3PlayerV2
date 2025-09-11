@@ -16,7 +16,7 @@ namespace MP3PlayerV2.Commands.Playlist
         /// playlist is empty or contains only one track.</returns>
         public bool Execute(PlayerCommand cmd, CommandContext ctx)
         {
-          if (ctx.GetPlaylistCount() <= 1)
+            if (ctx.GetPlaylistCount() <= 1)
             { ctx.Respond(false, "Playlist is either empty or only has 1 track", null); return false; }
 
             ctx.Respond(true, "Playlist has been shuffled", null);

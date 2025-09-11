@@ -19,7 +19,7 @@ namespace MP3PlayerV2.Commands.Playback
                 return false;
             }
 
-            ctx.Respond(true, "Next Command Called skip counter incremented", null);
+            ctx.Respond(true, "Next Command Called", null);
             ctx.Invoke(() => ctx.Next(false));
             return true;
         }

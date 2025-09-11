@@ -20,7 +20,7 @@ namespace MP3PlayerV2.Commands.Playlist
                 return false;
             }
 
-            if (ctx.GetPlaylistCount() == 0)
+            if (ctx.IsPlaylistEmpty())
             {
                 ctx.Respond(false, "Playlist is empty", null);
                 return false;
@@ -42,7 +42,6 @@ namespace MP3PlayerV2.Commands.Playlist
                 ctx.Invoke(() =>
                 {
                     ctx.SelectTrackByIndex(index);
-                    ctx.EnsureTrackVisible();
                     ctx.Play();
                 });
             }

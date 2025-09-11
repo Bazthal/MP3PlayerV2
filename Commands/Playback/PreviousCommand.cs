@@ -8,7 +8,7 @@ namespace MP3PlayerV2.Commands.Playback
     /// <remarks>This command checks if the playlist is empty before attempting to navigate to the previous
     /// item. If the playlist is empty, it responds with a failure message. Otherwise, it invokes the previous item
     /// navigation and responds with a success message.</remarks>
-    [Command("next")]
+    [Command("previous")]
     public class PreviousCommand : ICommandHandler
     {
         public bool Execute(PlayerCommand cmd, CommandContext ctx)
@@ -19,7 +19,7 @@ namespace MP3PlayerV2.Commands.Playback
                 return false;
             }
 
-            ctx.Respond(true, "Next Command Called", null);
+            ctx.Respond(true, "Previous Command Called", null);
             ctx.Invoke(() => ctx.Previous());
             return true;
         }

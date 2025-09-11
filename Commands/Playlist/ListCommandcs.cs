@@ -1,15 +1,13 @@
-﻿using System.Text.Json;
-using MP3PlayerV2.Models;
+﻿using MP3PlayerV2.Models;
 
 namespace MP3PlayerV2.Commands.Playlist
 {
     /// <summary>
-    /// Handles the "list" command, which retrieves and processes tracks from a playlist based on specified criteria.
+    /// Handles the "list" command, which filters and displays tracks from the playlist based on the specified criteria.
     /// </summary>
-    /// <remarks>This command checks if the playlist is empty or if the command value is not set, responding
-    /// with an appropriate message in such cases. If the command value is "unplayed", it lists all tracks that have not
-    /// been played. Otherwise, it searches for tracks matching the provided query. The results are serialized to JSON
-    /// and set as the command response.</remarks>
+    /// <remarks>This command supports filtering tracks by predefined modes such as "unplayed", "liked", or
+    /// "disliked",  or by a custom search value. If the playlist is empty or the command value is invalid, the
+    /// operation is canceled.</remarks>
     [Command("list")]
     public class ListCommand : ICommandHandler
     {
@@ -30,26 +28,34 @@ namespace MP3PlayerV2.Commands.Playlist
             var allTracks = ctx.GetPlaylistTracks();
             var matches = new List<Track>();
 
-            if (cmd.Value.Equals("unplayed", StringComparison.InvariantCultureIgnoreCase))
-            {
-                matches = allTracks.Where(t => (t.PlayCount ?? 0) == 0).ToList();
-            }
-            else
-            {
-                var query = ctx.NormalizeText(cmd.Value.ToLowerInvariant());
+            var mode = cmd.Value.ToLowerInvariant();
 
-                foreach (var track in allTracks)
-                {
-                    var normalized = ctx.NormalizeText(track.ToString().ToLowerInvariant());
-                    if (normalized.Contains(query))
-                        matches.Add(track);
-                }
+            switch (mode)
+            {
+                case "unplayed":
+                    matches = allTracks.Where(t => (t.PlayCount ?? 0) == 0).ToList();
+                    break;
+                case "liked":
+                    matches = allTracks.Where(t => t.Liked == true).ToList();
+                    break;
+                case "disliked":
+                    matches = allTracks.Where(t => t.Disliked == true).ToList();
+                    break;
+                default:
+                    var regex = ctx.BuildSearchRegex(cmd.Value);
+
+                    foreach (var track in allTracks)
+                    {
+                        string trackName = ctx.NormalizeText(track.ToString());
+                        if (regex.IsMatch(trackName))
+                            matches.Add(track);
+                    }
+                    break;
             }
 
-            string resultJson = JsonSerializer.Serialize(matches, ctx.JsonOptions);
-            ctx.SetCommandResponseJson(resultJson);
+            ctx.Respond(true, $"{matches.Count} Match(es) found for filter {cmd.Value}", matches);
             return true;
         }
     }
-
 }
+

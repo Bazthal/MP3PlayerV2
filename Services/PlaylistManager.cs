@@ -1,7 +1,7 @@
-﻿using System.Diagnostics;
-using System.Text;
-using BazthalLib;
+﻿using BazthalLib;
 using MP3PlayerV2.Models;
+using System.Diagnostics;
+using System.Text;
 
 namespace MP3PlayerV2.Services
 {
@@ -21,7 +21,7 @@ namespace MP3PlayerV2.Services
         /// Gets a read-only list of tracks.
         /// </summary>
         public IReadOnlyList<Track> Tracks => _tracks.AsReadOnly();
-        
+
         /// <summary>
         /// Returns the zero-based index of the first occurrence of the specified track in the collection.
         /// </summary>
@@ -188,25 +188,29 @@ namespace MP3PlayerV2.Services
         /// <summary>
         /// Loads a playlist from an M3U or M3U8 file and returns a list of tracks.
         /// </summary>
-        /// <remarks>The method reads the specified M3U or M3U8 file, extracts track paths, and retrieves
-        /// metadata for each track using the TagLib library.  It supports concurrent processing to improve performance,
-        /// with a maximum concurrency level based on the number of processor cores. Tracks are returned in the order
-        /// they appear in the playlist file. If a track's metadata cannot be read, it is skipped.</remarks>
-        /// <param name="filePath">The path to the M3U or M3U8 file to load. The file extension determines the encoding used: UTF-8 for ".m3u8"
-        /// and the system default for ".m3u".</param>
-        /// <returns>A list of <see cref="Track"/> objects representing the tracks in the playlist. The list is empty if no valid
-        /// tracks are found.</returns>
-        public async Task<List<Track>> LoadFromM3U(string filePath,Action<int, int, string?>? reportProgress = null,CancellationToken cancellationToken = default)
+        /// <remarks>This method processes both standard M3U and extended M3U files. Tracks are extracted
+        /// from the file paths listed in the playlist,  and metadata such as title, artist, album, and duration is
+        /// loaded from the associated audio files. <para> If the playlist contains invalid or non-existent file paths,
+        /// those entries are skipped. The method uses parallel processing to improve performance,  with a maximum
+        /// concurrency level determined by the system's processor count. </para> <para> The method raises the
+        /// <c>PlaylistChanged</c> event after successfully loading the playlist and updates the internal track
+        /// collection. </para></remarks>
+        /// <param name="filePath">The path to the M3U or M3U8 file to load. The file extension determines the encoding: UTF-8 for ".m3u8" and
+        /// the system default encoding for ".m3u".</param>
+        /// <param name="reportProgress">An optional callback to report progress during the loading process. The callback receives the number of
+        /// tracks processed,  the total number of tracks, and an estimated time remaining as a string (or <see
+        /// langword="null"/> if unavailable).</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests. If cancellation is requested, the operation will terminate
+        /// early.</param>
+        /// <returns>A list of <see cref="Track"/> objects representing the tracks in the playlist. The list is ordered based on
+        /// the order of tracks in the M3U file.</returns>
+        public async Task<List<Track>> LoadFromM3U(string filePath, Action<int, int, string?>? reportProgress = null, CancellationToken cancellationToken = default)
         {
             var ext = Path.GetExtension(filePath).ToLowerInvariant();
             var encoding = ext == ".m3u8" ? Encoding.UTF8 : Encoding.Default;
             var lines = File.ReadAllLines(filePath, encoding);
 
             var paths = new List<string>();
-
-
-            int completed = 0;
-            var stopwatch = Stopwatch.StartNew();
 
             for (int i = 0; i < lines.Length; i++)
             {
@@ -226,9 +230,15 @@ namespace MP3PlayerV2.Services
                         paths.Add(path);
                 }
             }
-                        int total = paths.Count;
 
-            int maxConcurrency = Math.Min(Environment.ProcessorCount * 2, 20);
+            int total = paths.Count;
+            int completed = 0;
+            var stopwatch = Stopwatch.StartNew();
+
+            var guidCache = TrackDatabase.PreloadTrackGuids();
+
+            int processorCount = Environment.ProcessorCount;
+            int maxConcurrency = Math.Min(processorCount * 2, processorCount < 8 ? 20 : 40);
             var semaphore = new SemaphoreSlim(maxConcurrency);
             var tasks = new List<Task<(int Index, Track? Track)>>();
 
@@ -237,11 +247,11 @@ namespace MP3PlayerV2.Services
                 var path = paths[i];
                 var index = i;
 
-                await semaphore.WaitAsync();
+                await semaphore.WaitAsync(CancellationToken.None);
 
                 if (cancellationToken.IsCancellationRequested)
                 {
-                    semaphore.Release(); // Don't forget to release it!
+                    semaphore.Release();
                     break;
                 }
 
@@ -251,22 +261,25 @@ namespace MP3PlayerV2.Services
                     {
                         cancellationToken.ThrowIfCancellationRequested();
 
-                        var tagFile = TagLib.File.Create(path);
-                        var track = new Track
+                        using (var tagFile = TagLib.File.Create(path))
                         {
-                            FilePath = path,
-                            Title = !string.IsNullOrEmpty(tagFile.Tag.Title)
-                                ? tagFile.Tag.Title
-                                : Path.GetFileNameWithoutExtension(path),
-                            Artist = tagFile.Tag.Performers?.Length > 0
-                                ? string.Join("/", tagFile.Tag.Performers)
-                                : "Unknown Artist",
-                            Album = !string.IsNullOrEmpty(tagFile.Tag.Album) ? tagFile.Tag.Album : "",
-                            DurationSeconds = (int)tagFile.Properties.Duration.TotalSeconds,
-                            Hash = TrackDatabase.ComputeFileHash(path)
-                        };
-
-                        return (Index: index, Track: track);
+                            var track = new Track
+                            {
+                                FilePath = path,
+                                Title = !string.IsNullOrEmpty(tagFile.Tag.Title)
+                                    ? tagFile.Tag.Title
+                                    : Path.GetFileNameWithoutExtension(path),
+                                Artist = tagFile.Tag.Performers?.Length > 0
+                                    ? string.Join("/", tagFile.Tag.Performers)
+                                    : "Unknown Artist",
+                                Album = !string.IsNullOrEmpty(tagFile.Tag.Album) ? tagFile.Tag.Album : "",
+                                DurationSeconds = (int)tagFile.Properties.Duration.TotalSeconds,
+                                Hash = TrackDatabase.ComputeFileHash(path, false),
+                            };
+                            track.Guid = TrackDatabase.AssignGuidFromCache(track, guidCache);
+                            DebugUtils.Log("Playlist Load", $"{index}", $"{track}");
+                            return (Index: index, Track: track);
+                        }
                     }
                     catch (OperationCanceledException)
                     {
@@ -286,7 +299,7 @@ namespace MP3PlayerV2.Services
                         int current = Interlocked.Increment(ref completed);
 
                         string? etaText = null;
-                        if (current % 50 == 0 || current == total)
+                        if (current % MP3PlayerV2._updateStep == 0 || current == total)
                         {
                             double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
                             double avgPerFile = elapsedSeconds / current;
@@ -307,7 +320,7 @@ namespace MP3PlayerV2.Services
 
             var results = await Task.WhenAll(tasks);
 
-            foreach (var result in results)
+             foreach (var result in results)
             {
                 if (result.Track != null)
                 {
@@ -325,6 +338,7 @@ namespace MP3PlayerV2.Services
             _tracks.AddRange(orderedTracks);
             PlaylistChanged?.Invoke();
 
+            MP3PlayerV2.Instance.CleanupIfNeeded(orderedTracks.Count);
             return orderedTracks;
         }
 

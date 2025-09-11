@@ -19,7 +19,7 @@ namespace MP3PlayerV2.Commands.Playlist
         {
             if (ctx.GetPlaylistCount() <= 1)
             {
-                ctx.Respond(false, "Playlist is empty", null);
+                ctx.Respond(false, "Playlist is either empty or only has 1 track", null);
                 return false;
             }
 
@@ -54,15 +54,20 @@ namespace MP3PlayerV2.Commands.Playlist
             }
 
             string sortField = cmd.Value.ToLowerInvariant();
+#nullable disable
             Action sortAction = sortField switch
             {
                 "artist" => () => ctx.SortPlaylist(t => t.Artist, descending),
                 "title" => () => ctx.SortPlaylist(t => t.Title, descending),
                 "lastplayed" => () => ctx.SortPlaylist(t => t.LastPlayed, descending),
                 "playcount" => () => ctx.SortPlaylist(t => t.PlayCount, descending),
+                "album" => () => ctx.SortPlaylist(t => t.Album, descending),
+                "liked" => () => ctx.SortPlaylist(t => t.Liked, descending),
+                "disliked" => () => ctx.SortPlaylist(t => t.Disliked, descending),
+                "rating" => () => ctx.SortPlaylist(t => t.RatingScore, descending),
                 _ => null
             };
-
+#nullable enable
             if (sortAction == null)
             {
                 ctx.Respond(false, $"Invalid sort field '{cmd.Value}'", null);

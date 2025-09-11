@@ -1,6 +1,6 @@
-﻿using System.Reflection;
+﻿using MP3PlayerV2.Models;
+using System.Reflection;
 using System.Text.Json;
-using MP3PlayerV2.Models;
 
 namespace MP3PlayerV2.Commands
 {
@@ -36,7 +36,7 @@ namespace MP3PlayerV2.Commands
         {
             var handlers = new Dictionary<string, ICommandHandler>();
 
-            var commandTypes = AppDomain.CurrentDomain.GetAssemblies().SelectMany(a  => a.GetTypes()).Where(t => typeof(ICommandHandler).IsAssignableFrom(t) && !t.IsAbstract && !t.IsInterface && t.GetCustomAttributes<CommandAttribute>() is not null);
+            var commandTypes = AppDomain.CurrentDomain.GetAssemblies().SelectMany(a => a.GetTypes()).Where(t => typeof(ICommandHandler).IsAssignableFrom(t) && !t.IsAbstract && !t.IsInterface && t.GetCustomAttributes<CommandAttribute>() is not null);
 
             foreach (var type in commandTypes)
             {
@@ -65,25 +65,26 @@ namespace MP3PlayerV2.Commands
         /// langword="false"/>.</returns>
         public bool Dispatch(string rawMessage, CommandContext context, JsonSerializerOptions options)
         {
-            try 
+            try
             {
                 var cmd = JsonSerializer.Deserialize<PlayerCommand>(rawMessage, options);
-                if (cmd == null || string.IsNullOrWhiteSpace(cmd.Command)) 
+                if (cmd == null || string.IsNullOrWhiteSpace(cmd.Command))
                     return false;
 
                 if (_handlers.TryGetValue(cmd.Command.ToLowerInvariant(), out var handler))
                 {
                     return handler.Execute(cmd, context);
                 }
-                context.Respond(false, $"Unkown Command: {cmd.Command}" , null);
+                context.Respond(false, $"Unkown Command: {cmd.Command}", null);
                 return false;
-            }   
-            catch (Exception ex) {
-                context.Respond(false, "Failed to parse command", ex.Message); 
+            }
+            catch (Exception ex)
+            {
+                context.Respond(false, "Failed to parse command", ex.Message);
                 return false;
             }
 
-            
+
         }
     }
 }
