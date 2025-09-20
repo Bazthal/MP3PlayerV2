@@ -121,6 +121,30 @@ namespace MP3PlayerV2.Services
             return null;
         }
 
+        /// <summary>
+        /// Searches for a track that contains the specified text in its string representation.
+        /// </summary>
+        /// <remarks>The search is case-sensitive and performs a substring match. If multiple tracks
+        /// contain the specified text, only the first match is returned.</remarks>
+        /// <param name="text">The text to search for within the string representation of tracks. Cannot be null, empty, or consist only of
+        /// whitespace.</param>
+        /// <returns>The first <see cref="Track"/> that contains the specified text in its string representation, or <see
+        /// langword="null"/> if no such track is found.</returns>
+        public Track? GetByText(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return null;
+            Track track = null;
+
+            for (int i = 0; i < Count; i++)
+            {
+                if (_tracks[i].ToString().Contains(text))
+                { track = _tracks[i]; break; }
+            }
+
+            return track != null? track : null ;
+
+        }
+
         public int Count => _tracks.Count;
 
         /// <summary>

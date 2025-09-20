@@ -25,6 +25,9 @@ namespace MP3PlayerV2
             BazthalLib.Systems.IO.Files.CreateDirectory(Path.Combine(Application.StartupPath, "Config"));
             BazthalLib.Systems.IO.Files.CreateDirectory(Path.Combine(Application.StartupPath, "Playdata"));
 
+            //Register Error handler logging
+            Services.GlobalErrorCatcher.Init();
+
             bool isNewInstance;
             _mutex = new Mutex(true, AppMutex, out isNewInstance);
             // Allow multiple instances when a debugger is attached, enabling simultaneous player usage and development

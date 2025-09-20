@@ -74,6 +74,7 @@
             cms_Load = new ToolStripMenuItem();
             cms_Save = new ToolStripMenuItem();
             toolStripSeparator5 = new ToolStripSeparator();
+            cms_TrackInformation = new ToolStripMenuItem();
             cms_RateTrack = new ToolStripMenuItem();
             cms_Like = new ToolStripMenuItem();
             cms_Neutral = new ToolStripMenuItem();
@@ -243,6 +244,7 @@
             playListBox.BorderColor = SystemColors.ActiveBorder;
             playListBox.ContextMenuStrip = cms_Main;
             playListBox.EnableHorizontalScroll = false;
+            playListBox.IncludeSpaceInSearchBuffer = false;
             playListBox.ItemHeight = 15;
             playListBox.Name = "playListBox";
             playListBox.SelectedItemBackColor = SystemColors.Highlight;
@@ -255,7 +257,7 @@
             // 
             // cms_Main
             // 
-            cms_Main.Items.AddRange(new ToolStripItem[] { cms_Add, cms_Remove, cms_Sort, cms_Shuffle, cms_Clear, cms_Load, cms_Save, toolStripSeparator5, cms_RateTrack, cms_Reset, cms_Exit });
+            cms_Main.Items.AddRange(new ToolStripItem[] { cms_Add, cms_Remove, cms_Sort, cms_Shuffle, cms_Clear, cms_Load, cms_Save, toolStripSeparator5, cms_TrackInformation, cms_RateTrack, cms_Reset, cms_Exit });
             cms_Main.Name = "cms_Main";
             cms_Main.RenderMode = ToolStripRenderMode.System;
             resources.ApplyResources(cms_Main, "cms_Main");
@@ -467,6 +469,12 @@
             // 
             toolStripSeparator5.Name = "toolStripSeparator5";
             resources.ApplyResources(toolStripSeparator5, "toolStripSeparator5");
+            // 
+            // cms_TrackInformation
+            // 
+            cms_TrackInformation.Name = "cms_TrackInformation";
+            resources.ApplyResources(cms_TrackInformation, "cms_TrackInformation");
+            cms_TrackInformation.Click += TrackInfo_Click;
             // 
             // cms_RateTrack
             // 
@@ -874,5 +882,6 @@
         private ToolStripMenuItem cms_Reset_Disliked_All;
         private ToolStripMenuItem cms_Reset_RatingScore_Selected;
         private ToolStripMenuItem cms_Reset_RatingScore_All;
+        private ToolStripMenuItem cms_TrackInformation;
     }
 }

@@ -36,16 +36,42 @@ namespace MP3PlayerV2.Commands
         {
             var handlers = new Dictionary<string, ICommandHandler>();
 
-            var commandTypes = AppDomain.CurrentDomain.GetAssemblies().SelectMany(a => a.GetTypes()).Where(t => typeof(ICommandHandler).IsAssignableFrom(t) && !t.IsAbstract && !t.IsInterface && t.GetCustomAttributes<CommandAttribute>() is not null);
+            string pluginPath = Path.Combine(Application.StartupPath, "Plugins");
+
+            if (Directory.Exists(pluginPath))
+            {
+                foreach (var dll in Directory.GetFiles(pluginPath, "*.dll"))
+                {
+                    try
+                    {
+                        Assembly.LoadFrom(dll);
+                        BazthalLib.DebugUtils.Log("PluginLoader", "Loaded", dll);
+                    }
+                    catch (Exception ex)
+                    {
+                        BazthalLib.DebugUtils.Log("PluginLoaderError", dll, ex.ToString());
+                    }
+                }
+            }
+
+            var commandTypes = AppDomain.CurrentDomain.GetAssemblies().SelectMany(a => a.GetTypes()).Where(t => typeof(ICommandHandler).IsAssignableFrom(t) && !t.IsAbstract && !t.IsInterface && t.GetCustomAttribute<CommandAttribute>() != null) ;
 
             foreach (var type in commandTypes)
             {
                 var attr = type.GetCustomAttribute<CommandAttribute>();
-                if (Activator.CreateInstance(type) is ICommandHandler handler)
+                try
                 {
-                    handlers[attr.Name] = handler;
-                    BazthalLib.DebugUtils.Log("Dictionary", "Handlers", $"{handler}");
+                    if (Activator.CreateInstance(type) is ICommandHandler handler)
+                    {
+                        handlers[attr.Name] = handler;
+                        BazthalLib.DebugUtils.Log("Dictionary", "Handlers", $"{handler}");
+                    }
                 }
+                catch (Exception ex)
+                {
+                    BazthalLib.DebugUtils.Log("HandlerLoadError", type.FullName, ex.ToString());
+                }
+
             }
             return handlers;
         }

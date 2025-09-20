@@ -2,6 +2,7 @@
 using BazthalLib.Configuration;
 using BazthalLib.Controls;
 using BazthalLib.Systems.IO;
+using BazthalLib.Systems.Network;
 using BazthalLib.UI;
 using CSCore;
 using CSCore.Codecs;
@@ -13,6 +14,7 @@ using MP3PlayerV2.Models;
 using MP3PlayerV2.Services;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Formats.Tar;
 using System.Globalization;
 using System.Text;
 using System.Text.Encodings.Web;
@@ -21,6 +23,7 @@ using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using WebSocketSharp;
 using WebSocketSharp.Server;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
 
 namespace MP3PlayerV2
 {
@@ -53,6 +56,8 @@ namespace MP3PlayerV2
         {
             UnplayedFirst,
             MostPlayed,
+            LikedOnly,
+            AvoidDisliked,
             WeightedByRating,
             UnratedFirst
         }
@@ -84,7 +89,7 @@ namespace MP3PlayerV2
         private bool _userStopped = false;
         private bool _trackEnd = false;
         private static string _currentTrackFilePath;
-        private static Track _currentTrackModel;
+        private static Track _currentTrackModel = null;
         private static readonly Random _rng = new();
         private readonly PlaylistManager _playlistManager = new();
         private readonly BazthalLib.Systems.LimitedStack<Track> _trackHistory = new(_maxTrackHistory);
@@ -383,8 +388,10 @@ namespace MP3PlayerV2
                     _audioDeviceIDList.SelectedIndex = AudioDeviceList.SelectedIndex;
                     deviceID = _audioDeviceIDList.SelectedItem.ToString();
                 }
+                Track track = _playlistManager.GetByText(playListBox.SelectedItem.ToString());
+      
+                if (track == null) return;
 
-                var track = _playlistManager.Get(playListBox.SelectedIndex);
                 _currentTrackFilePath = track.FilePath;
                 _currentTrackModel = track;
                 if (InitializeCSCore(_currentTrackFilePath, deviceID))
@@ -428,7 +435,6 @@ namespace MP3PlayerV2
                 }
             }
         }
-
 
         /// <summary>
         /// Toggles the playback state between playing and paused.
@@ -492,7 +498,7 @@ namespace MP3PlayerV2
 
             if (!automatic)
             {
-                var track = _playlistManager.Get(playListBox.SelectedIndex);
+                var track = _playlistManager.GetByText(playListBox.SelectedItem.ToString());
                 if (track != null && _waveSource != null)
                 {
                     TimeSpan pos = _waveSource.GetPosition();
@@ -534,6 +540,9 @@ namespace MP3PlayerV2
                         break;
                     }
                 }
+
+               
+
 
                 if (index != -1)
                 {
@@ -730,8 +739,6 @@ namespace MP3PlayerV2
             }
         }
 
-
-
         /// <summary>
         /// Updates the position of the trackbar to reflect the current playback position of the audio source.
         /// </summary>
@@ -799,7 +806,7 @@ namespace MP3PlayerV2
                         dialog.CloseAfter(1000);
                     });
 
-                    return; 
+                    return;
                 }
 
                 else if (mode == "all")
@@ -818,13 +825,13 @@ namespace MP3PlayerV2
                         playListBox.Invoke(() =>
                         {
                             if (playListBox.SelectedIndex >= 0)
-                                selectedTrack = _playlistManager.Get(playListBox.SelectedIndex);
+                                selectedTrack = _playlistManager.GetByText(playListBox.SelectedItem.ToString());
                         });
                     }
                     else
                     {
                         if (playListBox.SelectedIndex >= 0)
-                            selectedTrack = _playlistManager.Get(playListBox.SelectedIndex);
+                            selectedTrack = _playlistManager.GetByText(playListBox.SelectedItem.ToString());
                     }
 
                     if (selectedTrack != null && TrackDatabase.TrackExists(selectedTrack.Guid))
@@ -1032,17 +1039,19 @@ namespace MP3PlayerV2
         /// <summary>
         /// Updates the rating of a track based on the specified mode.
         /// </summary>
-        /// <remarks>If the rating is changed, the updated track statistics are saved to the database. If
-        /// an error occurs during  the save operation, it is logged but does not affect the return value.</remarks>
-        /// <param name="index">The index of the track in the playlist. Must be a valid index within the playlist.</param>
-        /// <param name="mode">The rating mode to apply to the track. Valid values are <see langword="like"/>, <see langword="dislike"/>, 
-        /// and <see langword="neutral"/>. The comparison is case-insensitive.</param>
-        /// <param name="track">The track to be rated. If <paramref name="track"/> is <see langword="null"/>, the track at the specified 
-        /// <paramref name="index"/> in the playlist will be retrieved automatically.</param>
-        /// <returns><see langword="true"/> if the track's rating was successfully updated; otherwise, <see langword="false"/>.</returns>
-        private bool UserRateTrack(int index, string mode, Track track = null)
+        /// <remarks>If the rating is successfully updated, the changes are saved to the database. If an
+        /// error occurs while saving, the error is logged, but the method does not throw an exception.</remarks>
+        /// <param name="item">The name or identifier of the track to be rated. If <paramref name="track"/> is not provided, this value is
+        /// used to retrieve the track.</param>
+        /// <param name="mode">The rating mode to apply. Valid values are: <list type="bullet"> <item><term>"like"</term> - Marks the track
+        /// as liked.</item> <item><term>"dislike"</term> - Marks the track as disliked.</item>
+        /// <item><term>"neutral"</term> - Removes any like or dislike rating from the track.</item> </list> The
+        /// comparison is case-insensitive.</param>
+        /// <param name="track">The <see cref="Track"/> object to be rated. If null, the track is retrieved using <paramref name="item"/>.</param>
+        /// <returns><see langword="true"/> if the track's rating was changed; otherwise, <see langword="false"/>.</returns>
+        private bool UserRateTrack(string item, string mode, Track track = null)
         {
-            track ??= _playlistManager.Get(index);
+            track ??= _playlistManager.GetByText(item);
 
             bool changed = false;
             switch (mode?.ToLowerInvariant())
@@ -1400,6 +1409,17 @@ namespace MP3PlayerV2
         #region Helper Methods
 
         /// <summary>
+        /// Resets the user interface text to its default state.
+        /// </summary>
+        /// <remarks>Sets the main window title to "MP3 Player" and clears the current track
+        /// label.</remarks>
+        private void ResetUIText()
+        {
+            this.Text = "MP3 Player";
+            Cur_Track_Label.Text = string.Empty;
+        }
+
+        /// <summary>
         /// Handles the processing of dropped files, identifying valid audio files and playlists,  and optionally
         /// initiating playback.
         /// </summary>
@@ -1537,68 +1557,90 @@ namespace MP3PlayerV2
 
         #endregion Helper Methods
 
-        #region Playlist Management 
+        #region Playlist Management
 
         /// <summary>
-        /// Selects a track from a collection of tracks, prioritizing those that have not been played.
+        /// Selects a track from the provided collection based on the current smart shuffle mode.
         /// </summary>
-        /// <remarks>The method first attempts to select a track that has not been played. If all tracks
-        /// have been played, it selects one of the tracks with the minimum play count.</remarks>
-        /// <param name="tracks">A collection of tracks to choose from. Each track may have a play count associated with it.</param>
-        /// <returns>A <see cref="Track"/> object that is either unplayed or among the least played tracks in the collection.
-        /// Returns <see langword="null"/> if the collection is empty.</returns>
+        /// <remarks>The selection process considers various factors depending on the smart shuffle mode,
+        /// such as play count, recent play history,  and track preferences (e.g., liked or disliked tracks). If no
+        /// track matches the criteria for the current mode, a fallback  mechanism is used to ensure a track is
+        /// selected, unless the collection is empty.</remarks>
+        /// <param name="tracks">A collection of tracks to choose from. The collection must not be null, but it can be empty.</param>
+        /// <returns>A <see cref="Track"/> object selected according to the smart shuffle mode, or <see langword="null"/> if the
+        /// collection is empty.</returns>
 #nullable enable
         private Track? PickSmartTrack(IEnumerable<Track> tracks)
         {
-            var trackslist = tracks.ToList();
+            var trackList = tracks.ToList();
+            if (!trackList.Any()) return null;
+
+            var recentTrackSet = new HashSet<Guid>(_trackHistory.Select(h => h.Guid));
             Track? track = null;
 
-            // Create a lookup set of recent track GUIDs
-            var recentTrackSet = new HashSet<Guid>(_trackHistory.Select(h => h.Guid));
+            List<Track> LeastPlayedOf(IEnumerable<Track> source, bool avoidRecent)
+            {
+                var grouped = source.GroupBy(t => t.PlayCount ?? 0)
+                                    .OrderBy(g => g.Key)
+                                    .FirstOrDefault();
+
+                if (grouped == null) return new List<Track>();
+
+                var bucket = grouped.ToList();
+
+                if (avoidRecent)
+                {
+                    var nonRecent = bucket.Where(t => !recentTrackSet.Contains(t.Guid)).ToList();
+                    if (nonRecent.Any()) return nonRecent;
+                }
+
+                return bucket;
+            }
+
+            List<Track> FallbackCandidates()
+            {
+                var nonRecent = trackList.Where(t => !recentTrackSet.Contains(t.Guid)).ToList();
+                return nonRecent.Any() ? nonRecent : trackList;
+            }
 
             switch (_smartShuffleMode)
             {
                 case SmartShuffleMode.UnplayedFirst:
-                    var unplayed = trackslist
-                        .Where(t => (t.PlayCount ?? 0) == 0)
-                        .ToList();
-
-                    if (unplayed.Count > 0)
-                        track = PickRandom(unplayed);
-                    else
-                    {
-                        int minPlays = trackslist.Min(t => t.PlayCount ?? 0);
-                        var leastPlayed = trackslist
-                            .Where(t => (t.PlayCount ?? 0) == minPlays)
-                            .ToList();
-
-                        track = PickRandom(leastPlayed);
-                    }
+                    var unplayed = trackList.Where(t => (t.PlayCount ?? 0) == 0).ToList();
+                    track = PickRandom(unplayed.Any()
+                        ? unplayed
+                        : LeastPlayedOf(trackList, avoidRecent: false), _currentTrackModel);
                     break;
 
                 case SmartShuffleMode.MostPlayed:
-                    var maxPlays = trackslist.Max(t => t.PlayCount ?? 0);
-
-                    if (maxPlays == 0) // fresh DB
+                    var maxPlays = trackList.Max(t => t.PlayCount ?? 0);
+                    if (maxPlays == 0)
                     {
-                        track = PickRandom(trackslist
-                            .Where(t => !recentTrackSet.Contains(t.Guid))
-                            .ToList());
+                        track = PickRandom(FallbackCandidates(), _currentTrackModel);
                         break;
                     }
 
-                    var mostPlayed = trackslist
+                    var mostPlayed = trackList
                         .Where(t => (t.PlayCount ?? 0) == maxPlays && !recentTrackSet.Contains(t.Guid))
                         .ToList();
 
-                    track = PickRandom(mostPlayed.Any()
-                        ? mostPlayed
-                        : trackslist.Where(t => !recentTrackSet.Contains(t.Guid)).ToList());
+                    track = PickRandom(mostPlayed.Any() ? mostPlayed : FallbackCandidates(), _currentTrackModel);
+                    break;
+
+                case SmartShuffleMode.LikedOnly:
+                    var liked = trackList.Where(t => t.Liked == true).ToList();
+                    if (liked.Any())
+                        track = PickRandom(LeastPlayedOf(liked, avoidRecent: true), _currentTrackModel);
+                    break;
+
+                case SmartShuffleMode.AvoidDisliked:
+                    var noDislike = trackList.Where(t => t.Disliked == false).ToList();
+                    track = PickRandom(noDislike.Any() ? noDislike : FallbackCandidates(), _currentTrackModel);
                     break;
 
                 case SmartShuffleMode.WeightedByRating:
                 case SmartShuffleMode.UnratedFirst:
-                    DebugUtils.Log("Smart Shuffle", "Pick Smart Track", $"Rating System not yet Implemented");
+                    DebugUtils.Log("Smart Shuffle", "Pick Smart Track", "Rating System not yet Implemented");
                     break;
 
                 default:
@@ -1606,8 +1648,12 @@ namespace MP3PlayerV2
                     break;
             }
 
+            if (track == null)
+                track = PickRandom(FallbackCandidates(), _currentTrackModel);
+
             return track;
         }
+
 
         /// <summary>
         /// Selects a random <see cref="Track"/> from the specified list.
@@ -1695,8 +1741,6 @@ namespace MP3PlayerV2
             }
             playListBox.SelectedIndex = Number;
         }
-
-
 
         /// <summary>
         /// Adds one or more tracks to the playlist, either from the specified file paths or by prompting the user to
@@ -1969,17 +2013,6 @@ namespace MP3PlayerV2
         #region Configuration
 
         /// <summary>
-        /// Resets the user interface text to its default state.
-        /// </summary>
-        /// <remarks>Sets the main window title to "MP3 Player" and clears the current track
-        /// label.</remarks>
-        private void ResetUIText()
-        {
-            this.Text = "MP3 Player";
-            Cur_Track_Label.Text = string.Empty;
-        }
-
-        /// <summary>
         /// Opens the settings window, allowing the user to modify application settings.
         /// </summary>
         /// <remarks>If the user confirms the changes, the application updates its WebSocket configuration
@@ -1989,7 +2022,9 @@ namespace MP3PlayerV2
             using var settingsForm = new SettingsForm(_settings);
             if (settingsForm.ShowDialog() == DialogResult.OK)
             {
-                _maxTrackHistory = _settings.Playback.MaxTrackHistory;
+                _maxTrackHistory = Math.Min(_settings.Playback.MaxTrackHistory, 9999);
+                _trackHistory.EnsureCapacity(_maxTrackHistory);
+
                 bool parsed = Enum.TryParse(_settings.SmartShuffle.Mode, out SmartShuffleMode mode);
                 if (parsed) _smartShuffleMode = mode;
 
@@ -2081,7 +2116,8 @@ namespace MP3PlayerV2
                 _volumeLevel = _settings.Playback.VolumeLvl;
                 AudioDeviceList.SelectedItem = _settings.Playback.AudioDevice;
                 playList_Options.SelectedItem = _settings.Playback.PlayListMode;
-                _maxTrackHistory = _settings.Playback.MaxTrackHistory;
+                _maxTrackHistory = Math.Min(_settings.Playback.MaxTrackHistory, 9999);
+                _trackHistory.EnsureCapacity(_maxTrackHistory);
 
                 //Websocket Settings
                 _webSocketAddress = _settings.WebSocket.Address;
@@ -2247,12 +2283,9 @@ namespace MP3PlayerV2
         /// <param name="e">The event data, which can be used to cancel the opening of the context menu.</param>
         private void ContextMenu_Opening(object sender, CancelEventArgs e)
         {
-            var index = playListBox.SelectedIndex;
-            var track = _playlistManager.Get(index);
-
+            var track = _playlistManager.GetByText(playListBox.SelectedItem.ToString());
             UpdateRatingMenuItems(cms_Main, track);
         }
-
 
         #endregion ContextMenu
 
@@ -2461,7 +2494,7 @@ namespace MP3PlayerV2
         /// "liked." Ensure that <see cref="playListBox.SelectedIndex"/> is valid before invoking this method.</remarks>
         /// <param name="sender">The source of the event, typically the button that was clicked.</param>
         /// <param name="e">The event data associated with the click action.</param>
-        private void LikeMenuButton_Click(object sender, EventArgs e) { UserRateTrack(playListBox.SelectedIndex, "like"); }
+        private void LikeMenuButton_Click(object sender, EventArgs e) { UserRateTrack(playListBox.SelectedItem.ToString(), "like"); }
 
         /// <summary>
         /// Handles the click event for the Neutral menu button.
@@ -2470,7 +2503,7 @@ namespace MP3PlayerV2
         /// Ensure that <see cref="playListBox.SelectedIndex"/> is valid before invoking this method.</remarks>
         /// <param name="sender">The source of the event, typically the button that was clicked.</param>
         /// <param name="e">The event data associated with the click action.</param>
-        private void NeutralMenuButton_Click(object sender, EventArgs e) { UserRateTrack(playListBox.SelectedIndex, "neutral"); }
+        private void NeutralMenuButton_Click(object sender, EventArgs e) { UserRateTrack(playListBox.SelectedItem.ToString(), "neutral"); }
 
         /// <summary>
         /// Handles the click event for the "Dislike" menu button.
@@ -2479,9 +2512,33 @@ namespace MP3PlayerV2
         /// "dislike." Ensure that a valid track is selected in the playlist before invoking this method.</remarks>
         /// <param name="sender">The source of the event, typically the button that was clicked.</param>
         /// <param name="e">The event data associated with the click action.</param>
-        private void DislikeMenuButton_Click(object sender, EventArgs e) { UserRateTrack(playListBox.SelectedIndex, "dislike"); }
+        private void DislikeMenuButton_Click(object sender, EventArgs e) { UserRateTrack(playListBox.SelectedItem.ToString(), "dislike"); }
 
+        /// <summary>
+        /// Displays detailed information about the currently selected track in the playlist.
+        /// </summary>
+        /// <remarks>This method retrieves the currently selected track from the playlist and displays its
+        /// details  in a message box. If no track is selected or the playlist is empty, the method exits without 
+        /// performing any action.</remarks>
+        /// <param name="sender">The source of the event. Typically the button that was clicked.</param>
+        /// <param name="e">An <see cref="EventArgs"/> instance containing the event data.</param>
+        private void TrackInfo_Click(object sender, EventArgs e)
+        {
+            if (playListBox.Items.Count == 0 || playListBox.SelectedIndex == -1) return;
 
+            var curTrack = _playlistManager.GetByText(playListBox.SelectedItem.ToString());
+
+            if (curTrack == null) return;
+
+            var trackInfoDlg = new TrackInformationDialog(curTrack);
+            trackInfoDlg.StartPosition = FormStartPosition.Manual;
+            trackInfoDlg.Location = new(
+                this.Location.X + (this.Width - trackInfoDlg.Width) / 2,
+                this.Location.Y + (this.Height - trackInfoDlg.Height) / 2
+                );
+            trackInfoDlg.Show();
+
+        }
         #endregion Buttons
 
         #region Sliders 
@@ -2557,10 +2614,10 @@ namespace MP3PlayerV2
             //These require the list-box control to be focused to accept these controls
 
             //Not Final Key combos
-            if (e.Control && e.KeyCode == Keys.L) { UserRateTrack(playListBox.SelectedIndex, "like"); return; }
-            else if (e.Control && e.KeyCode == Keys.D) { UserRateTrack(playListBox.SelectedIndex, "dislike"); return; }
-            else if (e.Control && e.KeyCode == Keys.N) { UserRateTrack(playListBox.SelectedIndex, "neutral"); return; }
-            /*
+            if (e.Control && e.KeyCode == Keys.L) { UserRateTrack(playListBox.SelectedItem.ToString(), "like"); return; }
+            else if (e.Control && e.KeyCode == Keys.D) { UserRateTrack(playListBox.SelectedItem.ToString() , "dislike"); return; }
+            else if (e.Control && e.KeyCode == Keys.N) { UserRateTrack(playListBox.SelectedItem.ToString(), "neutral"); return; }
+
             switch (e.KeyCode)
             {
                 case Keys.Enter: { Play(); break; }
@@ -2571,7 +2628,7 @@ namespace MP3PlayerV2
                 case Keys.MediaPlayPause: { Pause(); break; }
                 case Keys.MediaStop: { Stop(); break; }
             }
-            */
+
         }
 
         /// <summary>
@@ -2703,7 +2760,9 @@ namespace MP3PlayerV2
                 base.OnOpen();
                 if (this.Context.WebSocket.ReadyState == WebSocketState.Open)
                 {
-                    Send($"This is a Broadcast channel stay connected to see what's playing");
+
+                    string msg = ($"This is a Broadcast channel stay connected to see what's playing");
+                    Send(JsonSerializer.Serialize(new { Message = msg }, _jsonOption));
                     DebugUtils.Log("Now Playing - Websocket", "OnOpen", "Sent welcome message to client");
                 }
                 else

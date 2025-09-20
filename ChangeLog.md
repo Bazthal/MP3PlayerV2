@@ -1,5 +1,25 @@
 ﻿# MP3PlayerV2 ChangeLog
 
+## 1.2.1
+
+### Track Information Dialog
+- Added `TrackInformationDialog` to show more track information to the user 
+
+### Command Handling & Extensibility
+- `CommandDispatcher` now loads external command DLLs from the `Plugins` folder for extensibility.
+  - Enhanced error handling in `CommandDispatcher` to gracefully manage null values and loading failures.
+- Added `GlobalErrorCatcher` in `program.cs` to enhance exception handling and logging.
+- - The response from connecting to "Now Playing" endpoint is now formatted as JSON to match the rest of the responses.
+- Added `GetByText` method to `PlaylistManager` to return a track by matching a string.
+  - This enables users to re-order playlists in a future update.
+
+### Smart Shuffle
+- Introduced *Smart Shuffle* modes: `Liked` (plays only liked tracks) and `AvoidDisliked` (skips disliked tracks) for more personalized playback experience.
+  - This helps build the play data database with more accurate usage information.
+
+### Bug Fixes
+- Fixed previously commented-out keybinds in the listbox, restoring focused playback controls.
+
 ## 1.2.0 - Massive Overhaul
 
 ### Major Features & Enhancements

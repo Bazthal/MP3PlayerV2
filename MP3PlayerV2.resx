@@ -117,117 +117,21 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="&gt;&gt;Btn_Next.Name" xml:space="preserve">
-    <value>Btn_Next</value>
-  </data>
-  <data name="&gt;&gt;Btn_Next.Type" xml:space="preserve">
-    <value>BazthalLib.Controls.ThemableButton, BazthalLib, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;Btn_Next.Parent" xml:space="preserve">
-    <value>ctrls_Panel</value>
-  </data>
-  <data name="&gt;&gt;Btn_Next.ZOrder" xml:space="preserve">
-    <value>0</value>
-  </data>
-  <data name="&gt;&gt;Btn_Stop.Name" xml:space="preserve">
-    <value>Btn_Stop</value>
-  </data>
-  <data name="&gt;&gt;Btn_Stop.Type" xml:space="preserve">
-    <value>BazthalLib.Controls.ThemableButton, BazthalLib, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;Btn_Stop.Parent" xml:space="preserve">
-    <value>ctrls_Panel</value>
-  </data>
-  <data name="&gt;&gt;Btn_Stop.ZOrder" xml:space="preserve">
-    <value>1</value>
-  </data>
-  <data name="&gt;&gt;Btn_Pause.Name" xml:space="preserve">
-    <value>Btn_Pause</value>
-  </data>
-  <data name="&gt;&gt;Btn_Pause.Type" xml:space="preserve">
-    <value>BazthalLib.Controls.ThemableButton, BazthalLib, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;Btn_Pause.Parent" xml:space="preserve">
-    <value>ctrls_Panel</value>
-  </data>
-  <data name="&gt;&gt;Btn_Pause.ZOrder" xml:space="preserve">
-    <value>2</value>
-  </data>
-  <data name="&gt;&gt;Btn_Play.Name" xml:space="preserve">
-    <value>Btn_Play</value>
-  </data>
-  <data name="&gt;&gt;Btn_Play.Type" xml:space="preserve">
-    <value>BazthalLib.Controls.ThemableButton, BazthalLib, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;Btn_Play.Parent" xml:space="preserve">
-    <value>ctrls_Panel</value>
-  </data>
-  <data name="&gt;&gt;Btn_Play.ZOrder" xml:space="preserve">
-    <value>3</value>
-  </data>
-  <data name="&gt;&gt;Btn_Back.Name" xml:space="preserve">
-    <value>Btn_Back</value>
-  </data>
-  <data name="&gt;&gt;Btn_Back.Type" xml:space="preserve">
-    <value>BazthalLib.Controls.ThemableButton, BazthalLib, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;Btn_Back.Parent" xml:space="preserve">
-    <value>ctrls_Panel</value>
-  </data>
-  <data name="&gt;&gt;Btn_Back.ZOrder" xml:space="preserve">
-    <value>4</value>
-  </data>
-  <data name="&gt;&gt;Cur_Track_Label.Name" xml:space="preserve">
-    <value>Cur_Track_Label</value>
-  </data>
-  <data name="&gt;&gt;Cur_Track_Label.Type" xml:space="preserve">
-    <value>BazthalLib.Controls.ThemableLabel, BazthalLib, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;Cur_Track_Label.Parent" xml:space="preserve">
-    <value>ctrls_Panel</value>
-  </data>
-  <data name="&gt;&gt;Cur_Track_Label.ZOrder" xml:space="preserve">
-    <value>5</value>
-  </data>
   <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
-  <data name="ctrls_Panel.Dock" type="System.Windows.Forms.DockStyle, System.Windows.Forms">
-    <value>Top</value>
-  </data>
-  <assembly alias="System.Drawing" name="System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" />
-  <data name="ctrls_Panel.Location" type="System.Drawing.Point, System.Drawing">
-    <value>0, 29</value>
-  </data>
-  <data name="ctrls_Panel.Size" type="System.Drawing.Size, System.Drawing">
-    <value>363, 33</value>
-  </data>
-  <assembly alias="mscorlib" name="mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
-  <data name="ctrls_Panel.TabIndex" type="System.Int32, mscorlib">
-    <value>2</value>
-  </data>
-  <data name="&gt;&gt;ctrls_Panel.Name" xml:space="preserve">
-    <value>ctrls_Panel</value>
-  </data>
-  <data name="&gt;&gt;ctrls_Panel.Type" xml:space="preserve">
-    <value>BazthalLib.Controls.ThemablePanel, BazthalLib, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;ctrls_Panel.Parent" xml:space="preserve">
-    <value>$this</value>
-  </data>
-  <data name="&gt;&gt;ctrls_Panel.ZOrder" xml:space="preserve">
-    <value>3</value>
-  </data>
   <data name="Btn_Next.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
     <value>Top, Right</value>
   </data>
   <data name="Btn_Next.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
     <value>NoControl</value>
   </data>
+  <assembly alias="System.Drawing" name="System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" />
   <data name="Btn_Next.Location" type="System.Drawing.Point, System.Drawing">
     <value>329, 8</value>
   </data>
   <data name="Btn_Next.Size" type="System.Drawing.Size, System.Drawing">
     <value>20, 16</value>
   </data>
+  <assembly alias="mscorlib" name="mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
   <data name="Btn_Next.TabIndex" type="System.Int32, mscorlib">
     <value>5</value>
   </data>
@@ -432,53 +336,29 @@
   <data name="&gt;&gt;Cur_Track_Label.ZOrder" xml:space="preserve">
     <value>5</value>
   </data>
-  <data name="&gt;&gt;Volume_Slider.Name" xml:space="preserve">
-    <value>Volume_Slider</value>
-  </data>
-  <data name="&gt;&gt;Volume_Slider.Type" xml:space="preserve">
-    <value>BazthalLib.Controls.ThemableTrackBar, BazthalLib, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;Volume_Slider.Parent" xml:space="preserve">
-    <value>slider_Panel</value>
-  </data>
-  <data name="&gt;&gt;Volume_Slider.ZOrder" xml:space="preserve">
-    <value>0</value>
-  </data>
-  <data name="&gt;&gt;Tracking_Slider.Name" xml:space="preserve">
-    <value>Tracking_Slider</value>
-  </data>
-  <data name="&gt;&gt;Tracking_Slider.Type" xml:space="preserve">
-    <value>BazthalLib.Controls.ThemableTrackBar, BazthalLib, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;Tracking_Slider.Parent" xml:space="preserve">
-    <value>slider_Panel</value>
-  </data>
-  <data name="&gt;&gt;Tracking_Slider.ZOrder" xml:space="preserve">
-    <value>1</value>
-  </data>
-  <data name="slider_Panel.Dock" type="System.Windows.Forms.DockStyle, System.Windows.Forms">
+  <data name="ctrls_Panel.Dock" type="System.Windows.Forms.DockStyle, System.Windows.Forms">
     <value>Top</value>
   </data>
-  <data name="slider_Panel.Location" type="System.Drawing.Point, System.Drawing">
-    <value>0, 62</value>
+  <data name="ctrls_Panel.Location" type="System.Drawing.Point, System.Drawing">
+    <value>0, 29</value>
   </data>
-  <data name="slider_Panel.Size" type="System.Drawing.Size, System.Drawing">
-    <value>363, 20</value>
+  <data name="ctrls_Panel.Size" type="System.Drawing.Size, System.Drawing">
+    <value>363, 33</value>
   </data>
-  <data name="slider_Panel.TabIndex" type="System.Int32, mscorlib">
-    <value>3</value>
+  <data name="ctrls_Panel.TabIndex" type="System.Int32, mscorlib">
+    <value>2</value>
   </data>
-  <data name="&gt;&gt;slider_Panel.Name" xml:space="preserve">
-    <value>slider_Panel</value>
+  <data name="&gt;&gt;ctrls_Panel.Name" xml:space="preserve">
+    <value>ctrls_Panel</value>
   </data>
-  <data name="&gt;&gt;slider_Panel.Type" xml:space="preserve">
+  <data name="&gt;&gt;ctrls_Panel.Type" xml:space="preserve">
     <value>BazthalLib.Controls.ThemablePanel, BazthalLib, Culture=neutral, PublicKeyToken=null</value>
   </data>
-  <data name="&gt;&gt;slider_Panel.Parent" xml:space="preserve">
+  <data name="&gt;&gt;ctrls_Panel.Parent" xml:space="preserve">
     <value>$this</value>
   </data>
-  <data name="&gt;&gt;slider_Panel.ZOrder" xml:space="preserve">
-    <value>2</value>
+  <data name="&gt;&gt;ctrls_Panel.ZOrder" xml:space="preserve">
+    <value>3</value>
   </data>
   <data name="Volume_Slider.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
     <value>Top, Right</value>
@@ -528,14 +408,386 @@
   <data name="&gt;&gt;Tracking_Slider.ZOrder" xml:space="preserve">
     <value>1</value>
   </data>
+  <data name="slider_Panel.Dock" type="System.Windows.Forms.DockStyle, System.Windows.Forms">
+    <value>Top</value>
+  </data>
+  <data name="slider_Panel.Location" type="System.Drawing.Point, System.Drawing">
+    <value>0, 62</value>
+  </data>
+  <data name="slider_Panel.Size" type="System.Drawing.Size, System.Drawing">
+    <value>363, 20</value>
+  </data>
+  <data name="slider_Panel.TabIndex" type="System.Int32, mscorlib">
+    <value>3</value>
+  </data>
+  <data name="&gt;&gt;slider_Panel.Name" xml:space="preserve">
+    <value>slider_Panel</value>
+  </data>
+  <data name="&gt;&gt;slider_Panel.Type" xml:space="preserve">
+    <value>BazthalLib.Controls.ThemablePanel, BazthalLib, Culture=neutral, PublicKeyToken=null</value>
+  </data>
+  <data name="&gt;&gt;slider_Panel.Parent" xml:space="preserve">
+    <value>$this</value>
+  </data>
+  <data name="&gt;&gt;slider_Panel.ZOrder" xml:space="preserve">
+    <value>2</value>
+  </data>
   <data name="playListBox.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
     <value>Top, Bottom, Left, Right</value>
   </data>
   <metadata name="cms_Main.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
     <value>514, 24</value>
   </metadata>
+  <data name="cms_Add.Size" type="System.Drawing.Size, System.Drawing">
+    <value>168, 22</value>
+  </data>
+  <data name="cms_Add.Text" xml:space="preserve">
+    <value>Add Music</value>
+  </data>
+  <data name="cms_Remove.Size" type="System.Drawing.Size, System.Drawing">
+    <value>168, 22</value>
+  </data>
+  <data name="cms_Remove.Text" xml:space="preserve">
+    <value>Remove Selected</value>
+  </data>
+  <data name="cms_Sort_Artist_Asc.Size" type="System.Drawing.Size, System.Drawing">
+    <value>136, 22</value>
+  </data>
+  <data name="cms_Sort_Artist_Asc.Text" xml:space="preserve">
+    <value>Ascending</value>
+  </data>
+  <data name="cms_Sort_Artist_Desc.Size" type="System.Drawing.Size, System.Drawing">
+    <value>136, 22</value>
+  </data>
+  <data name="cms_Sort_Artist_Desc.Text" xml:space="preserve">
+    <value>Descending</value>
+  </data>
+  <data name="cms_Sort_Artist.Size" type="System.Drawing.Size, System.Drawing">
+    <value>133, 22</value>
+  </data>
+  <data name="cms_Sort_Artist.Text" xml:space="preserve">
+    <value>Artist</value>
+  </data>
+  <data name="cms_Sort_Title_Asc.Size" type="System.Drawing.Size, System.Drawing">
+    <value>136, 22</value>
+  </data>
+  <data name="cms_Sort_Title_Asc.Text" xml:space="preserve">
+    <value>Ascending</value>
+  </data>
+  <data name="cms_Sort_Title_Desc.Size" type="System.Drawing.Size, System.Drawing">
+    <value>136, 22</value>
+  </data>
+  <data name="cms_Sort_Title_Desc.Text" xml:space="preserve">
+    <value>Descending</value>
+  </data>
+  <data name="cms_Sort_Title.Size" type="System.Drawing.Size, System.Drawing">
+    <value>133, 22</value>
+  </data>
+  <data name="cms_Sort_Title.Text" xml:space="preserve">
+    <value>Title</value>
+  </data>
+  <data name="cms_Sort_Album_Asc.Size" type="System.Drawing.Size, System.Drawing">
+    <value>136, 22</value>
+  </data>
+  <data name="cms_Sort_Album_Asc.Text" xml:space="preserve">
+    <value>Ascending</value>
+  </data>
+  <data name="cms_Sort_Album_Desc.Size" type="System.Drawing.Size, System.Drawing">
+    <value>136, 22</value>
+  </data>
+  <data name="cms_Sort_Album_Desc.Text" xml:space="preserve">
+    <value>Descending</value>
+  </data>
+  <data name="cms_Sort_Album.Size" type="System.Drawing.Size, System.Drawing">
+    <value>133, 22</value>
+  </data>
+  <data name="cms_Sort_Album.Text" xml:space="preserve">
+    <value>Album</value>
+  </data>
+  <data name="cms_Sort_Play_Count_Asc.Size" type="System.Drawing.Size, System.Drawing">
+    <value>136, 22</value>
+  </data>
+  <data name="cms_Sort_Play_Count_Asc.Text" xml:space="preserve">
+    <value>Ascending</value>
+  </data>
+  <data name="cms_Sort_Play_Count_Desc.Size" type="System.Drawing.Size, System.Drawing">
+    <value>136, 22</value>
+  </data>
+  <data name="cms_Sort_Play_Count_Desc.Text" xml:space="preserve">
+    <value>Descending</value>
+  </data>
+  <data name="cms_Sort_PlayCount.Size" type="System.Drawing.Size, System.Drawing">
+    <value>133, 22</value>
+  </data>
+  <data name="cms_Sort_PlayCount.Text" xml:space="preserve">
+    <value>Play Count</value>
+  </data>
+  <data name="cms_Sort_Last_Played_Asc.Size" type="System.Drawing.Size, System.Drawing">
+    <value>136, 22</value>
+  </data>
+  <data name="cms_Sort_Last_Played_Asc.Text" xml:space="preserve">
+    <value>Ascending</value>
+  </data>
+  <data name="cms_Sort_Last_Played_Desc.Size" type="System.Drawing.Size, System.Drawing">
+    <value>136, 22</value>
+  </data>
+  <data name="cms_Sort_Last_Played_Desc.Text" xml:space="preserve">
+    <value>Descending</value>
+  </data>
+  <data name="cms_Sort_LastPlayed.Size" type="System.Drawing.Size, System.Drawing">
+    <value>133, 22</value>
+  </data>
+  <data name="cms_Sort_LastPlayed.Text" xml:space="preserve">
+    <value>Last Played</value>
+  </data>
+  <data name="cms_Sort_Liked_Asc.Size" type="System.Drawing.Size, System.Drawing">
+    <value>136, 22</value>
+  </data>
+  <data name="cms_Sort_Liked_Asc.Text" xml:space="preserve">
+    <value>Ascending</value>
+  </data>
+  <data name="cms_Sort_Liked_Desc.Size" type="System.Drawing.Size, System.Drawing">
+    <value>136, 22</value>
+  </data>
+  <data name="cms_Sort_Liked_Desc.Text" xml:space="preserve">
+    <value>Descending</value>
+  </data>
+  <data name="cms_Sort_Liked.Size" type="System.Drawing.Size, System.Drawing">
+    <value>133, 22</value>
+  </data>
+  <data name="cms_Sort_Liked.Text" xml:space="preserve">
+    <value>Liked</value>
+  </data>
+  <data name="cms_Sort_Disliked_Asc.Size" type="System.Drawing.Size, System.Drawing">
+    <value>136, 22</value>
+  </data>
+  <data name="cms_Sort_Disliked_Asc.Text" xml:space="preserve">
+    <value>Ascending</value>
+  </data>
+  <data name="cms_Sort_Disliked_Desc.Size" type="System.Drawing.Size, System.Drawing">
+    <value>136, 22</value>
+  </data>
+  <data name="cms_Sort_Disliked_Desc.Text" xml:space="preserve">
+    <value>Descending</value>
+  </data>
+  <data name="cms_Sort_Disliked.Size" type="System.Drawing.Size, System.Drawing">
+    <value>133, 22</value>
+  </data>
+  <data name="cms_Sort_Disliked.Text" xml:space="preserve">
+    <value>Disliked</value>
+  </data>
+  <data name="cms_Sort_Rating_Asc.Size" type="System.Drawing.Size, System.Drawing">
+    <value>136, 22</value>
+  </data>
+  <data name="cms_Sort_Rating_Asc.Text" xml:space="preserve">
+    <value>Ascending</value>
+  </data>
+  <data name="cms_Sort_Rating_Desc.Size" type="System.Drawing.Size, System.Drawing">
+    <value>136, 22</value>
+  </data>
+  <data name="cms_Sort_Rating_Desc.Text" xml:space="preserve">
+    <value>Descending</value>
+  </data>
+  <data name="cms_Sort_Rating.Size" type="System.Drawing.Size, System.Drawing">
+    <value>133, 22</value>
+  </data>
+  <data name="cms_Sort_Rating.Text" xml:space="preserve">
+    <value>Rating</value>
+  </data>
+  <data name="cms_Sort.Size" type="System.Drawing.Size, System.Drawing">
+    <value>168, 22</value>
+  </data>
+  <data name="cms_Sort.Text" xml:space="preserve">
+    <value>Sort Playlist</value>
+  </data>
+  <data name="cms_Shuffle.Size" type="System.Drawing.Size, System.Drawing">
+    <value>168, 22</value>
+  </data>
+  <data name="cms_Shuffle.Text" xml:space="preserve">
+    <value>Shuffle Playlist</value>
+  </data>
+  <data name="cms_Clear.Size" type="System.Drawing.Size, System.Drawing">
+    <value>168, 22</value>
+  </data>
+  <data name="cms_Clear.Text" xml:space="preserve">
+    <value>Clear Playlist</value>
+  </data>
+  <data name="cms_Load.Size" type="System.Drawing.Size, System.Drawing">
+    <value>168, 22</value>
+  </data>
+  <data name="cms_Load.Text" xml:space="preserve">
+    <value>Load Playlist</value>
+  </data>
+  <data name="cms_Save.Size" type="System.Drawing.Size, System.Drawing">
+    <value>168, 22</value>
+  </data>
+  <data name="cms_Save.Text" xml:space="preserve">
+    <value>Save Playlist</value>
+  </data>
+  <data name="toolStripSeparator5.Size" type="System.Drawing.Size, System.Drawing">
+    <value>165, 6</value>
+  </data>
+  <data name="cms_TrackInformation.Size" type="System.Drawing.Size, System.Drawing">
+    <value>168, 22</value>
+  </data>
+  <data name="cms_TrackInformation.Text" xml:space="preserve">
+    <value>Track Information</value>
+  </data>
+  <data name="cms_Like.Size" type="System.Drawing.Size, System.Drawing">
+    <value>113, 22</value>
+  </data>
+  <data name="cms_Like.Text" xml:space="preserve">
+    <value>Like</value>
+  </data>
+  <data name="cms_Neutral.Size" type="System.Drawing.Size, System.Drawing">
+    <value>113, 22</value>
+  </data>
+  <data name="cms_Neutral.Text" xml:space="preserve">
+    <value>Neutral</value>
+  </data>
+  <data name="cms_Dislike.Size" type="System.Drawing.Size, System.Drawing">
+    <value>113, 22</value>
+  </data>
+  <data name="cms_Dislike.Text" xml:space="preserve">
+    <value>Dislike</value>
+  </data>
+  <data name="cms_RateTrack.Size" type="System.Drawing.Size, System.Drawing">
+    <value>168, 22</value>
+  </data>
+  <data name="cms_RateTrack.Text" xml:space="preserve">
+    <value>Rate Track</value>
+  </data>
+  <data name="cms_Reset_PlayCount_Selected.Size" type="System.Drawing.Size, System.Drawing">
+    <value>118, 22</value>
+  </data>
+  <data name="cms_Reset_PlayCount_Selected.Text" xml:space="preserve">
+    <value>Selected</value>
+  </data>
+  <data name="cms_Reset_PlayCount_ALL.Size" type="System.Drawing.Size, System.Drawing">
+    <value>118, 22</value>
+  </data>
+  <data name="cms_Reset_PlayCount_ALL.Text" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="cms_Reset_PlayCount.Size" type="System.Drawing.Size, System.Drawing">
+    <value>140, 22</value>
+  </data>
+  <data name="cms_Reset_PlayCount.Text" xml:space="preserve">
+    <value>Play Count</value>
+  </data>
+  <data name="cms_Reset_LastPlayed_Selected.Size" type="System.Drawing.Size, System.Drawing">
+    <value>118, 22</value>
+  </data>
+  <data name="cms_Reset_LastPlayed_Selected.Text" xml:space="preserve">
+    <value>Selected</value>
+  </data>
+  <data name="cms_Reset_LastPlayed_ALL.Size" type="System.Drawing.Size, System.Drawing">
+    <value>118, 22</value>
+  </data>
+  <data name="cms_Reset_LastPlayed_ALL.Text" xml:space="preserve">
+    <value>ALL</value>
+  </data>
+  <data name="cms_Reset_LastPlayed.Size" type="System.Drawing.Size, System.Drawing">
+    <value>140, 22</value>
+  </data>
+  <data name="cms_Reset_LastPlayed.Text" xml:space="preserve">
+    <value>Last Played</value>
+  </data>
+  <data name="cms_Reset_SkipCount_Selected.Size" type="System.Drawing.Size, System.Drawing">
+    <value>118, 22</value>
+  </data>
+  <data name="cms_Reset_SkipCount_Selected.Text" xml:space="preserve">
+    <value>Selected</value>
+  </data>
+  <data name="cms_Reset_SkipCount_ALL.Size" type="System.Drawing.Size, System.Drawing">
+    <value>118, 22</value>
+  </data>
+  <data name="cms_Reset_SkipCount_ALL.Text" xml:space="preserve">
+    <value>ALL</value>
+  </data>
+  <data name="cms_Reset_SkipCount.Size" type="System.Drawing.Size, System.Drawing">
+    <value>140, 22</value>
+  </data>
+  <data name="cms_Reset_SkipCount.Text" xml:space="preserve">
+    <value>Skip Count</value>
+  </data>
+  <data name="cms_Reset_Liked_Selected.Size" type="System.Drawing.Size, System.Drawing">
+    <value>118, 22</value>
+  </data>
+  <data name="cms_Reset_Liked_Selected.Text" xml:space="preserve">
+    <value>Selected</value>
+  </data>
+  <data name="cms_Reset_Liked_All.Size" type="System.Drawing.Size, System.Drawing">
+    <value>118, 22</value>
+  </data>
+  <data name="cms_Reset_Liked_All.Text" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="cms_Reset_Liked.Size" type="System.Drawing.Size, System.Drawing">
+    <value>140, 22</value>
+  </data>
+  <data name="cms_Reset_Liked.Text" xml:space="preserve">
+    <value>Liked</value>
+  </data>
+  <data name="cms_Reset_Disliked_Selected.Size" type="System.Drawing.Size, System.Drawing">
+    <value>118, 22</value>
+  </data>
+  <data name="cms_Reset_Disliked_Selected.Text" xml:space="preserve">
+    <value>Selected</value>
+  </data>
+  <data name="cms_Reset_Disliked_All.Size" type="System.Drawing.Size, System.Drawing">
+    <value>118, 22</value>
+  </data>
+  <data name="cms_Reset_Disliked_All.Text" xml:space="preserve">
+    <value>ALL</value>
+  </data>
+  <data name="cms_Reset_Disliked.Size" type="System.Drawing.Size, System.Drawing">
+    <value>140, 22</value>
+  </data>
+  <data name="cms_Reset_Disliked.Text" xml:space="preserve">
+    <value>Dislike</value>
+  </data>
+  <data name="cms_Reset_RatingScore_Selected.Size" type="System.Drawing.Size, System.Drawing">
+    <value>118, 22</value>
+  </data>
+  <data name="cms_Reset_RatingScore_Selected.Text" xml:space="preserve">
+    <value>Selected</value>
+  </data>
+  <data name="cms_Reset_RatingScore_All.Size" type="System.Drawing.Size, System.Drawing">
+    <value>118, 22</value>
+  </data>
+  <data name="cms_Reset_RatingScore_All.Text" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="cms_Reset_RatingScore.Size" type="System.Drawing.Size, System.Drawing">
+    <value>140, 22</value>
+  </data>
+  <data name="cms_Reset_RatingScore.Text" xml:space="preserve">
+    <value>Rating Score</value>
+  </data>
+  <data name="toolStripSeparator6.Size" type="System.Drawing.Size, System.Drawing">
+    <value>137, 6</value>
+  </data>
+  <data name="cms_Reset_All.Size" type="System.Drawing.Size, System.Drawing">
+    <value>140, 22</value>
+  </data>
+  <data name="cms_Reset_All.Text" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="cms_Reset.Size" type="System.Drawing.Size, System.Drawing">
+    <value>168, 22</value>
+  </data>
+  <data name="cms_Reset.Text" xml:space="preserve">
+    <value>Reset</value>
+  </data>
+  <data name="cms_Exit.Size" type="System.Drawing.Size, System.Drawing">
+    <value>168, 22</value>
+  </data>
+  <data name="cms_Exit.Text" xml:space="preserve">
+    <value>Exit</value>
+  </data>
   <data name="cms_Main.Size" type="System.Drawing.Size, System.Drawing">
-    <value>165, 230</value>
+    <value>169, 252</value>
   </data>
   <data name="&gt;&gt;cms_Main.Name" xml:space="preserve">
     <value>cms_Main</value>
@@ -566,348 +818,6 @@
   </data>
   <data name="&gt;&gt;playListBox.ZOrder" xml:space="preserve">
     <value>6</value>
-  </data>
-  <data name="cms_Add.Size" type="System.Drawing.Size, System.Drawing">
-    <value>164, 22</value>
-  </data>
-  <data name="cms_Add.Text" xml:space="preserve">
-    <value>Add Music</value>
-  </data>
-  <data name="cms_Remove.Size" type="System.Drawing.Size, System.Drawing">
-    <value>164, 22</value>
-  </data>
-  <data name="cms_Remove.Text" xml:space="preserve">
-    <value>Remove Selected</value>
-  </data>
-  <data name="cms_Sort.Size" type="System.Drawing.Size, System.Drawing">
-    <value>164, 22</value>
-  </data>
-  <data name="cms_Sort.Text" xml:space="preserve">
-    <value>Sort Playlist</value>
-  </data>
-  <data name="cms_Sort_Artist.Size" type="System.Drawing.Size, System.Drawing">
-    <value>133, 22</value>
-  </data>
-  <data name="cms_Sort_Artist.Text" xml:space="preserve">
-    <value>Artist</value>
-  </data>
-  <data name="cms_Sort_Artist_Asc.Size" type="System.Drawing.Size, System.Drawing">
-    <value>136, 22</value>
-  </data>
-  <data name="cms_Sort_Artist_Asc.Text" xml:space="preserve">
-    <value>Ascending</value>
-  </data>
-  <data name="cms_Sort_Artist_Desc.Size" type="System.Drawing.Size, System.Drawing">
-    <value>136, 22</value>
-  </data>
-  <data name="cms_Sort_Artist_Desc.Text" xml:space="preserve">
-    <value>Descending</value>
-  </data>
-  <data name="cms_Sort_Title.Size" type="System.Drawing.Size, System.Drawing">
-    <value>133, 22</value>
-  </data>
-  <data name="cms_Sort_Title.Text" xml:space="preserve">
-    <value>Title</value>
-  </data>
-  <data name="cms_Sort_Title_Asc.Size" type="System.Drawing.Size, System.Drawing">
-    <value>136, 22</value>
-  </data>
-  <data name="cms_Sort_Title_Asc.Text" xml:space="preserve">
-    <value>Ascending</value>
-  </data>
-  <data name="cms_Sort_Title_Desc.Size" type="System.Drawing.Size, System.Drawing">
-    <value>136, 22</value>
-  </data>
-  <data name="cms_Sort_Title_Desc.Text" xml:space="preserve">
-    <value>Descending</value>
-  </data>
-  <data name="cms_Sort_Album.Size" type="System.Drawing.Size, System.Drawing">
-    <value>133, 22</value>
-  </data>
-  <data name="cms_Sort_Album.Text" xml:space="preserve">
-    <value>Album</value>
-  </data>
-  <data name="cms_Sort_Album_Asc.Size" type="System.Drawing.Size, System.Drawing">
-    <value>136, 22</value>
-  </data>
-  <data name="cms_Sort_Album_Asc.Text" xml:space="preserve">
-    <value>Ascending</value>
-  </data>
-  <data name="cms_Sort_Album_Desc.Size" type="System.Drawing.Size, System.Drawing">
-    <value>136, 22</value>
-  </data>
-  <data name="cms_Sort_Album_Desc.Text" xml:space="preserve">
-    <value>Descending</value>
-  </data>
-  <data name="cms_Sort_PlayCount.Size" type="System.Drawing.Size, System.Drawing">
-    <value>133, 22</value>
-  </data>
-  <data name="cms_Sort_PlayCount.Text" xml:space="preserve">
-    <value>Play Count</value>
-  </data>
-  <data name="cms_Sort_Play_Count_Asc.Size" type="System.Drawing.Size, System.Drawing">
-    <value>136, 22</value>
-  </data>
-  <data name="cms_Sort_Play_Count_Asc.Text" xml:space="preserve">
-    <value>Ascending</value>
-  </data>
-  <data name="cms_Sort_Play_Count_Desc.Size" type="System.Drawing.Size, System.Drawing">
-    <value>136, 22</value>
-  </data>
-  <data name="cms_Sort_Play_Count_Desc.Text" xml:space="preserve">
-    <value>Descending</value>
-  </data>
-  <data name="cms_Sort_LastPlayed.Size" type="System.Drawing.Size, System.Drawing">
-    <value>133, 22</value>
-  </data>
-  <data name="cms_Sort_LastPlayed.Text" xml:space="preserve">
-    <value>Last Played</value>
-  </data>
-  <data name="cms_Sort_Last_Played_Asc.Size" type="System.Drawing.Size, System.Drawing">
-    <value>136, 22</value>
-  </data>
-  <data name="cms_Sort_Last_Played_Asc.Text" xml:space="preserve">
-    <value>Ascending</value>
-  </data>
-  <data name="cms_Sort_Last_Played_Desc.Size" type="System.Drawing.Size, System.Drawing">
-    <value>136, 22</value>
-  </data>
-  <data name="cms_Sort_Last_Played_Desc.Text" xml:space="preserve">
-    <value>Descending</value>
-  </data>
-  <data name="cms_Sort_Liked.Size" type="System.Drawing.Size, System.Drawing">
-    <value>133, 22</value>
-  </data>
-  <data name="cms_Sort_Liked.Text" xml:space="preserve">
-    <value>Liked</value>
-  </data>
-  <data name="cms_Sort_Liked_Asc.Size" type="System.Drawing.Size, System.Drawing">
-    <value>136, 22</value>
-  </data>
-  <data name="cms_Sort_Liked_Asc.Text" xml:space="preserve">
-    <value>Ascending</value>
-  </data>
-  <data name="cms_Sort_Liked_Desc.Size" type="System.Drawing.Size, System.Drawing">
-    <value>136, 22</value>
-  </data>
-  <data name="cms_Sort_Liked_Desc.Text" xml:space="preserve">
-    <value>Descending</value>
-  </data>
-  <data name="cms_Sort_Disliked.Size" type="System.Drawing.Size, System.Drawing">
-    <value>133, 22</value>
-  </data>
-  <data name="cms_Sort_Disliked.Text" xml:space="preserve">
-    <value>Disliked</value>
-  </data>
-  <data name="cms_Sort_Disliked_Asc.Size" type="System.Drawing.Size, System.Drawing">
-    <value>136, 22</value>
-  </data>
-  <data name="cms_Sort_Disliked_Asc.Text" xml:space="preserve">
-    <value>Ascending</value>
-  </data>
-  <data name="cms_Sort_Disliked_Desc.Size" type="System.Drawing.Size, System.Drawing">
-    <value>136, 22</value>
-  </data>
-  <data name="cms_Sort_Disliked_Desc.Text" xml:space="preserve">
-    <value>Descending</value>
-  </data>
-  <data name="cms_Sort_Rating.Size" type="System.Drawing.Size, System.Drawing">
-    <value>133, 22</value>
-  </data>
-  <data name="cms_Sort_Rating.Text" xml:space="preserve">
-    <value>Rating</value>
-  </data>
-  <data name="cms_Sort_Rating_Asc.Size" type="System.Drawing.Size, System.Drawing">
-    <value>136, 22</value>
-  </data>
-  <data name="cms_Sort_Rating_Asc.Text" xml:space="preserve">
-    <value>Ascending</value>
-  </data>
-  <data name="cms_Sort_Rating_Desc.Size" type="System.Drawing.Size, System.Drawing">
-    <value>136, 22</value>
-  </data>
-  <data name="cms_Sort_Rating_Desc.Text" xml:space="preserve">
-    <value>Descending</value>
-  </data>
-  <data name="cms_Shuffle.Size" type="System.Drawing.Size, System.Drawing">
-    <value>164, 22</value>
-  </data>
-  <data name="cms_Shuffle.Text" xml:space="preserve">
-    <value>Shuffle Playlist</value>
-  </data>
-  <data name="cms_Clear.Size" type="System.Drawing.Size, System.Drawing">
-    <value>164, 22</value>
-  </data>
-  <data name="cms_Clear.Text" xml:space="preserve">
-    <value>Clear Playlist</value>
-  </data>
-  <data name="cms_Load.Size" type="System.Drawing.Size, System.Drawing">
-    <value>164, 22</value>
-  </data>
-  <data name="cms_Load.Text" xml:space="preserve">
-    <value>Load Playlist</value>
-  </data>
-  <data name="cms_Save.Size" type="System.Drawing.Size, System.Drawing">
-    <value>164, 22</value>
-  </data>
-  <data name="cms_Save.Text" xml:space="preserve">
-    <value>Save Playlist</value>
-  </data>
-  <data name="toolStripSeparator5.Size" type="System.Drawing.Size, System.Drawing">
-    <value>161, 6</value>
-  </data>
-  <data name="cms_RateTrack.Size" type="System.Drawing.Size, System.Drawing">
-    <value>164, 22</value>
-  </data>
-  <data name="cms_RateTrack.Text" xml:space="preserve">
-    <value>Rate Track</value>
-  </data>
-  <data name="cms_Like.Size" type="System.Drawing.Size, System.Drawing">
-    <value>113, 22</value>
-  </data>
-  <data name="cms_Like.Text" xml:space="preserve">
-    <value>Like</value>
-  </data>
-  <data name="cms_Neutral.Size" type="System.Drawing.Size, System.Drawing">
-    <value>113, 22</value>
-  </data>
-  <data name="cms_Neutral.Text" xml:space="preserve">
-    <value>Neutral</value>
-  </data>
-  <data name="cms_Dislike.Size" type="System.Drawing.Size, System.Drawing">
-    <value>113, 22</value>
-  </data>
-  <data name="cms_Dislike.Text" xml:space="preserve">
-    <value>Dislike</value>
-  </data>
-  <data name="cms_Reset.Size" type="System.Drawing.Size, System.Drawing">
-    <value>164, 22</value>
-  </data>
-  <data name="cms_Reset.Text" xml:space="preserve">
-    <value>Reset</value>
-  </data>
-  <data name="cms_Reset_PlayCount.Size" type="System.Drawing.Size, System.Drawing">
-    <value>140, 22</value>
-  </data>
-  <data name="cms_Reset_PlayCount.Text" xml:space="preserve">
-    <value>Play Count</value>
-  </data>
-  <data name="cms_Reset_PlayCount_Selected.Size" type="System.Drawing.Size, System.Drawing">
-    <value>118, 22</value>
-  </data>
-  <data name="cms_Reset_PlayCount_Selected.Text" xml:space="preserve">
-    <value>Selected</value>
-  </data>
-  <data name="cms_Reset_PlayCount_ALL.Size" type="System.Drawing.Size, System.Drawing">
-    <value>118, 22</value>
-  </data>
-  <data name="cms_Reset_PlayCount_ALL.Text" xml:space="preserve">
-    <value>All</value>
-  </data>
-  <data name="cms_Reset_LastPlayed.Size" type="System.Drawing.Size, System.Drawing">
-    <value>140, 22</value>
-  </data>
-  <data name="cms_Reset_LastPlayed.Text" xml:space="preserve">
-    <value>Last Played</value>
-  </data>
-  <data name="cms_Reset_LastPlayed_Selected.Size" type="System.Drawing.Size, System.Drawing">
-    <value>118, 22</value>
-  </data>
-  <data name="cms_Reset_LastPlayed_Selected.Text" xml:space="preserve">
-    <value>Selected</value>
-  </data>
-  <data name="cms_Reset_LastPlayed_ALL.Size" type="System.Drawing.Size, System.Drawing">
-    <value>118, 22</value>
-  </data>
-  <data name="cms_Reset_LastPlayed_ALL.Text" xml:space="preserve">
-    <value>ALL</value>
-  </data>
-  <data name="cms_Reset_SkipCount.Size" type="System.Drawing.Size, System.Drawing">
-    <value>140, 22</value>
-  </data>
-  <data name="cms_Reset_SkipCount.Text" xml:space="preserve">
-    <value>Skip Count</value>
-  </data>
-  <data name="cms_Reset_SkipCount_Selected.Size" type="System.Drawing.Size, System.Drawing">
-    <value>118, 22</value>
-  </data>
-  <data name="cms_Reset_SkipCount_Selected.Text" xml:space="preserve">
-    <value>Selected</value>
-  </data>
-  <data name="cms_Reset_SkipCount_ALL.Size" type="System.Drawing.Size, System.Drawing">
-    <value>118, 22</value>
-  </data>
-  <data name="cms_Reset_SkipCount_ALL.Text" xml:space="preserve">
-    <value>ALL</value>
-  </data>
-  <data name="cms_Reset_Liked.Size" type="System.Drawing.Size, System.Drawing">
-    <value>140, 22</value>
-  </data>
-  <data name="cms_Reset_Liked.Text" xml:space="preserve">
-    <value>Liked</value>
-  </data>
-  <data name="cms_Reset_Liked_Selected.Size" type="System.Drawing.Size, System.Drawing">
-    <value>118, 22</value>
-  </data>
-  <data name="cms_Reset_Liked_Selected.Text" xml:space="preserve">
-    <value>Selected</value>
-  </data>
-  <data name="cms_Reset_Liked_All.Size" type="System.Drawing.Size, System.Drawing">
-    <value>118, 22</value>
-  </data>
-  <data name="cms_Reset_Liked_All.Text" xml:space="preserve">
-    <value>All</value>
-  </data>
-  <data name="cms_Reset_Disliked.Size" type="System.Drawing.Size, System.Drawing">
-    <value>140, 22</value>
-  </data>
-  <data name="cms_Reset_Disliked.Text" xml:space="preserve">
-    <value>Dislike</value>
-  </data>
-  <data name="cms_Reset_Disliked_Selected.Size" type="System.Drawing.Size, System.Drawing">
-    <value>118, 22</value>
-  </data>
-  <data name="cms_Reset_Disliked_Selected.Text" xml:space="preserve">
-    <value>Selected</value>
-  </data>
-  <data name="cms_Reset_Disliked_All.Size" type="System.Drawing.Size, System.Drawing">
-    <value>118, 22</value>
-  </data>
-  <data name="cms_Reset_Disliked_All.Text" xml:space="preserve">
-    <value>ALL</value>
-  </data>
-  <data name="cms_Reset_RatingScore.Size" type="System.Drawing.Size, System.Drawing">
-    <value>140, 22</value>
-  </data>
-  <data name="cms_Reset_RatingScore.Text" xml:space="preserve">
-    <value>Rating Score</value>
-  </data>
-  <data name="cms_Reset_RatingScore_Selected.Size" type="System.Drawing.Size, System.Drawing">
-    <value>118, 22</value>
-  </data>
-  <data name="cms_Reset_RatingScore_Selected.Text" xml:space="preserve">
-    <value>Selected</value>
-  </data>
-  <data name="cms_Reset_RatingScore_All.Size" type="System.Drawing.Size, System.Drawing">
-    <value>118, 22</value>
-  </data>
-  <data name="cms_Reset_RatingScore_All.Text" xml:space="preserve">
-    <value>All</value>
-  </data>
-  <data name="toolStripSeparator6.Size" type="System.Drawing.Size, System.Drawing">
-    <value>137, 6</value>
-  </data>
-  <data name="cms_Reset_All.Size" type="System.Drawing.Size, System.Drawing">
-    <value>140, 22</value>
-  </data>
-  <data name="cms_Reset_All.Text" xml:space="preserve">
-    <value>All</value>
-  </data>
-  <data name="cms_Exit.Size" type="System.Drawing.Size, System.Drawing">
-    <value>164, 22</value>
-  </data>
-  <data name="cms_Exit.Text" xml:space="preserve">
-    <value>Exit</value>
   </data>
   <data name="toolStripSeparator1.Size" type="System.Drawing.Size, System.Drawing">
     <value>177, 6</value>
@@ -1158,39 +1068,8 @@
   <metadata name="ts_Main.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
     <value>17, 17</value>
   </metadata>
-  <metadata name="ts_Btn_Settings.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-    <value>377, 22</value>
-  </metadata>
-  <metadata name="AudioDeviceList.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-    <value>131, 22</value>
-  </metadata>
   <data name="ts_Main.AutoSize" type="System.Boolean, mscorlib">
     <value>False</value>
-  </data>
-  <data name="ts_Main.Location" type="System.Drawing.Point, System.Drawing">
-    <value>0, 0</value>
-  </data>
-  <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
-  <data name="ts_Main.Padding" type="System.Windows.Forms.Padding, System.Windows.Forms">
-    <value>6, 3, 6, 3</value>
-  </data>
-  <data name="ts_Main.Size" type="System.Drawing.Size, System.Drawing">
-    <value>363, 29</value>
-  </data>
-  <data name="ts_Main.TabIndex" type="System.Int32, mscorlib">
-    <value>1</value>
-  </data>
-  <data name="&gt;&gt;ts_Main.Name" xml:space="preserve">
-    <value>ts_Main</value>
-  </data>
-  <data name="&gt;&gt;ts_Main.Type" xml:space="preserve">
-    <value>BazthalLib.Controls.ThemableToolStrip, BazthalLib, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;ts_Main.Parent" xml:space="preserve">
-    <value>$this</value>
-  </data>
-  <data name="&gt;&gt;ts_Main.ZOrder" xml:space="preserve">
-    <value>4</value>
   </data>
   <metadata name="ts_Btn_Settings.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
     <value>377, 22</value>
@@ -1224,6 +1103,31 @@
   </data>
   <data name="AudioDeviceList.Size" type="System.Drawing.Size, System.Drawing">
     <value>150, 22</value>
+  </data>
+  <data name="ts_Main.Location" type="System.Drawing.Point, System.Drawing">
+    <value>0, 0</value>
+  </data>
+  <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
+  <data name="ts_Main.Padding" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>6, 3, 6, 3</value>
+  </data>
+  <data name="ts_Main.Size" type="System.Drawing.Size, System.Drawing">
+    <value>363, 29</value>
+  </data>
+  <data name="ts_Main.TabIndex" type="System.Int32, mscorlib">
+    <value>1</value>
+  </data>
+  <data name="&gt;&gt;ts_Main.Name" xml:space="preserve">
+    <value>ts_Main</value>
+  </data>
+  <data name="&gt;&gt;ts_Main.Type" xml:space="preserve">
+    <value>BazthalLib.Controls.ThemableToolStrip, BazthalLib, Culture=neutral, PublicKeyToken=null</value>
+  </data>
+  <data name="&gt;&gt;ts_Main.Parent" xml:space="preserve">
+    <value>$this</value>
+  </data>
+  <data name="&gt;&gt;ts_Main.ZOrder" xml:space="preserve">
+    <value>4</value>
   </data>
   <metadata name="$this.Localizable" type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
     <value>True</value>
@@ -8279,6 +8183,12 @@
   </data>
   <data name="&gt;&gt;toolStripSeparator5.Type" xml:space="preserve">
     <value>System.Windows.Forms.ToolStripSeparator, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;cms_TrackInformation.Name" xml:space="preserve">
+    <value>cms_TrackInformation</value>
+  </data>
+  <data name="&gt;&gt;cms_TrackInformation.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;cms_RateTrack.Name" xml:space="preserve">
     <value>cms_RateTrack</value>

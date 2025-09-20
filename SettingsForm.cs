@@ -29,13 +29,14 @@ namespace MP3PlayerV2
         public SettingsForm(AppSettings appSettings)
         {
             BazthalLib.UI.Theming.RegisterForm(this);
+            Icon = MP3PlayerV2.Instance.Icon;
             InitializeComponent();
             //Set Config path to use full application startup path instead of relative path
             ThemeSetter.ConfigFilePath = Path.Combine(Application.StartupPath, "Config\\CustomTheme.json");
 
             cb_Shuffle_Modes.Items.Clear();// Should already be empty but for safety
             // cb_Shuffle_Modes.Items.AddRange(Enum.GetNames(typeof(SmartShuffleMode)));
-            cb_Shuffle_Modes.Items.AddRange([SmartShuffleMode.UnplayedFirst, SmartShuffleMode.MostPlayed]); // For Now just add the ones implemented
+            cb_Shuffle_Modes.Items.AddRange([SmartShuffleMode.UnplayedFirst, SmartShuffleMode.MostPlayed, SmartShuffleMode.LikedOnly, SmartShuffleMode.AvoidDisliked]); // For Now just add the ones implemented
             _appSettings = appSettings;
             UpdateFromSettings();
             GetWSServerStatus();
@@ -89,7 +90,7 @@ namespace MP3PlayerV2
         private void UpdateFromSettings()
         {
             //Playback Settings
-            nud_StackLimit.Value = _appSettings.Playback.MaxTrackHistory;
+            nud_StackLimit.Value = Math.Min(_appSettings.Playback.MaxTrackHistory, nud_StackLimit.Maximum);
 
             //Smart Shuffle Settings
             cb_Shuffle_Modes.SelectedItem = Enum.TryParse(_appSettings.SmartShuffle.Mode, out SmartShuffleMode mode) ? mode.ToString() : SmartShuffleMode.UnplayedFirst.ToString();
@@ -145,7 +146,7 @@ namespace MP3PlayerV2
         private void UpdateSettings()
         {
             //Playback Settings
-            _appSettings.Playback.MaxTrackHistory = (int)nud_StackLimit.Value;
+            _appSettings.Playback.MaxTrackHistory = Math.Min((int)nud_StackLimit.Value, nud_StackLimit.Maximum);
 
             //Smart Shuffle Settings
             _appSettings.SmartShuffle.Mode = cb_Shuffle_Modes.SelectedItem;

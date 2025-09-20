@@ -28,7 +28,6 @@
         /// </summary>
         private void InitializeComponent()
         {
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(SettingsForm));
             ThemeSetter = new BazthalLib.Controls.ThemeColorsSetter();
             gb_WebSocketServer = new BazthalLib.Controls.ThemableGroupBox();
             btn_WSS_Stop = new BazthalLib.Controls.ThemableButton();
@@ -800,6 +799,7 @@
             // nud_StackLimit
             // 
             nud_StackLimit.Location = new Point(129, 144);
+            nud_StackLimit.Maximum = 9999;
             nud_StackLimit.Name = "nud_StackLimit";
             nud_StackLimit.Padding = new Padding(1);
             nud_StackLimit.Size = new Size(56, 23);
@@ -971,11 +971,9 @@
             Controls.Add(btn_Apply);
             Controls.Add(tabControlBase);
             FormBorderStyle = FormBorderStyle.FixedDialog;
-            Icon = (Icon)resources.GetObject("$this.Icon");
             MaximizeBox = false;
             MinimizeBox = false;
             Name = "SettingsForm";
-            ShowIcon = false;
             StartPosition = FormStartPosition.CenterParent;
             Text = "Settings";
             gb_WebSocketServer.ResumeLayout(false);

@@ -18,7 +18,17 @@ Powered by the **BazthalLib** UI framework, which emphasizes modern design, cust
 - **Sequential** – Play tracks in order  
 - **Repeat Playlist / Repeat Track** – Loop the full playlist or current track  
 - **Random Track** – Traditional random playback  
-- **Smart Shuffle** – Plays unplayed tracks first, then least played  
+- **Smart Shuffle** – Advanced shuffle that uses play history and preferences to pick tracks intelligently.
+
+### Smart Shuffle Modes
+- **Unplayed First**  
+  - Prioritizes tracks you haven't played yet, then plays those with the lowest play count.
+- **Most Played**  
+  - Rotates through your most played tracks, using play history to avoid repeating the same song too often.
+- **Liked Only**  
+  - Plays only tracks you've marked as liked. If none are available, falls back to tracks you haven't played recently.
+- **Avoid Disliked**  
+  - Plays all tracks except those you've marked as disliked, and tries to avoid repeating recently played songs.
 
 ### Playlist Management
 - Create, save, and load multiple playlists  
