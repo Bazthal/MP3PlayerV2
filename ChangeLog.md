@@ -1,6 +1,6 @@
 ﻿# MP3PlayerV2 ChangeLog
 
-## 1.2.2 (In Progress)
+## 1.2.2
 
 ### UI & Dialog Enhancements
 - Set processing dialog to use the application icon during initialization
