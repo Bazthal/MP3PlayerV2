@@ -239,17 +239,23 @@
             // 
             // playListBox
             // 
+            playListBox.AllowCtrlMoveitems = true;
+            playListBox.AllowDragReorder = true;
             playListBox.AllowDrop = true;
             resources.ApplyResources(playListBox, "playListBox");
             playListBox.BorderColor = SystemColors.ActiveBorder;
             playListBox.ContextMenuStrip = cms_Main;
+            playListBox.DrawFocusRectangle = false;
             playListBox.EnableHorizontalScroll = false;
             playListBox.IncludeSpaceInSearchBuffer = false;
             playListBox.ItemHeight = 15;
             playListBox.Name = "playListBox";
             playListBox.SelectedItemBackColor = SystemColors.Highlight;
             playListBox.SelectedItemForeColor = SystemColors.HighlightText;
+            playListBox.ShowDragGhost = true;
+            playListBox.UseAccentForReorderLine = true;
             playListBox.SelectedIndexChanged += PlayList_SelectedIndexChanged;
+            playListBox.ItemsReordered += Playlist_Reordered;
             playListBox.DragDrop += PlayList_DragDrop;
             playListBox.DragEnter += PlayList_DragEnter;
             playListBox.DoubleClick += PlayList_DoubleClick;

@@ -1,5 +1,20 @@
 ﻿# MP3PlayerV2 ChangeLog
 
+## 1.2.2 (In Progress)
+
+### UI & Dialog Enhancements
+- Set processing dialog to use the application icon during initialization
+- Simplified the logic for restoring the current track selection after shuffling the playlist order
+
+### Stability & Bug Fixes
+- Fixed potential crash from call `NextTrack` without playing anything before
+
+### Library & Dependency Updates
+- Updated BazthalLib to version 1.1.5 to enable listbox sorting
+
+### Playlist Management
+- Enhanced playlist management with new methods for reordering tracks in `PlaylistManager`.
+
 ## 1.2.1
 
 ### Track Information Dialog

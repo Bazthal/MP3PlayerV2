@@ -2,7 +2,6 @@
 using BazthalLib.Configuration;
 using BazthalLib.Controls;
 using BazthalLib.Systems.IO;
-using BazthalLib.Systems.Network;
 using BazthalLib.UI;
 using CSCore;
 using CSCore.Codecs;
@@ -14,7 +13,6 @@ using MP3PlayerV2.Models;
 using MP3PlayerV2.Services;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Formats.Tar;
 using System.Globalization;
 using System.Text;
 using System.Text.Encodings.Web;
@@ -23,7 +21,6 @@ using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using WebSocketSharp;
 using WebSocketSharp.Server;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
 
 namespace MP3PlayerV2
 {
@@ -183,7 +180,6 @@ namespace MP3PlayerV2
                 if (_playlistManager.Count <= 0)
                     playListBox.SelectedIndex = -1;
             };
-
 
             if (_autoStart)
             {
@@ -357,7 +353,7 @@ namespace MP3PlayerV2
                         ;
                         //Stop Then process the new track
                         Stop();
-                        DebugUtils.Log("No Track Match", "Play", $"Match Not Found: {Cur_Track_Label.Text} is not {playListBox.SelectedItem}");
+                        DebugUtils.Log("No Track Match", "Play", $"Match Not Found: {Cur_Track_Label.Text} is not {playListBox.SelectedItem.ToString()}");
                     }
                     else
                     {
@@ -389,7 +385,6 @@ namespace MP3PlayerV2
                     deviceID = _audioDeviceIDList.SelectedItem.ToString();
                 }
                 Track track = _playlistManager.GetByText(playListBox.SelectedItem.ToString());
-      
                 if (track == null) return;
 
                 _currentTrackFilePath = track.FilePath;
@@ -498,28 +493,25 @@ namespace MP3PlayerV2
 
             if (!automatic)
             {
-                var track = _playlistManager.GetByText(playListBox.SelectedItem.ToString());
-                if (track != null && _waveSource != null)
+                if (_currentTrackModel != null && _waveSource != null)
                 {
                     TimeSpan pos = _waveSource.GetPosition();
                     TimeSpan len = _waveSource.GetLength();
 
                     if (IsSkipValid(pos, len))
                     {
-                        TrackRatingManager.ApplySkip(track, _settings.TrackRating, pos.Seconds);
+                        TrackRatingManager.ApplySkip(_currentTrackModel, _settings.TrackRating, pos.Seconds);
                         //track.SkipCount++;
-                        try { TrackDatabase.SaveStats(track); }
+                        try { TrackDatabase.SaveStats(_currentTrackModel); }
                         catch (Exception ex) { DebugUtils.Log("Next", "Save Stats", $"Error: {ex.Message}"); }
                     }
                 }
             }
 
 
-            if (playListBox.SelectedIndex >= 0)
+            if (_currentTrackModel !=  null) 
             {
-                //This needs to change to to the current track and not based on the playlist selection
                 _trackHistory.Push(_currentTrackModel);
-                //_trackHistory.Push(playListBox.SelectedItem.ToString());
             }
 
             bool endOfPlaylist = false;
@@ -540,9 +532,6 @@ namespace MP3PlayerV2
                         break;
                     }
                 }
-
-               
-
 
                 if (index != -1)
                 {
@@ -598,9 +587,7 @@ namespace MP3PlayerV2
 
                         if (playListBox.SelectedIndex == playListBox.Items.Count - 1)
                         {
-
-                            this.Text = "MP3 Player";
-                            Cur_Track_Label.Text = "";
+                            ResetUIText();
                             playListBox.SelectedIndex = -1;
                             Tracking_Slider.Value = 0;
                             endOfPlaylist = true;
@@ -1011,6 +998,7 @@ namespace MP3PlayerV2
 
             var dialog = new ThemableProcessingDialog("Importing tracks...");
             dialog.StartPosition = FormStartPosition.Manual;
+            dialog.Icon = Icon;
             dialog.Location = new(
                 this.Location.X + (this.Width - dialog.Width) / 2,
                 this.Location.Y + (this.Height - dialog.Height) / 2
@@ -1575,6 +1563,7 @@ namespace MP3PlayerV2
             var trackList = tracks.ToList();
             if (!trackList.Any()) return null;
 
+
             var recentTrackSet = new HashSet<Guid>(_trackHistory.Select(h => h.Guid));
             Track? track = null;
 
@@ -1691,18 +1680,12 @@ namespace MP3PlayerV2
         {
             _playlistManager.Shuffle();
             // restore original selection
-            for (int i = 0; i < playListBox.Items.Count - 1; i++)
+            int index = 0;
+            if (_currentTrackModel != null)
             {
-                if (!string.IsNullOrWhiteSpace(Cur_Track_Label.Text))
-                {
-                    if (playListBox.Items[i].ToString().Contains(Cur_Track_Label.Text))
-                    {
-                        DebugUtils.Log("Shuffle", "Restore Selection", $"{playListBox.Items[i]} = {Cur_Track_Label.Text}");
-                        playListBox.SelectedIndex = i;
-                        break;
-                    }
-                }
+              index  = _playlistManager.IndexOf(_currentTrackModel);
             }
+            playListBox.SelectedIndex = index;
         }
 
         /// <summary>
@@ -1764,6 +1747,7 @@ namespace MP3PlayerV2
                 if (files == null || files.Length == 0) return;
             }
             var dialog = new ThemableProcessingDialog("Adding tracks...") { StartPosition = FormStartPosition.Manual };
+            dialog.Icon = Icon;
             dialog.Location = new(
                 this.Location.X + (this.Width - dialog.Width) / 2,
                 this.Location.Y + (this.Height - dialog.Height) / 2
@@ -1914,6 +1898,7 @@ namespace MP3PlayerV2
             if (string.IsNullOrWhiteSpace(saveFileName)) return;
 
             var dialog = new ThemableProcessingDialog("Saving Playlist...", showProgress: true, showCancelButton: false) { StartPosition = FormStartPosition.Manual };
+            dialog.Icon = Icon;
             dialog.Location = new(
                 this.Location.X + (this.Width - dialog.Width) / 2,
                 this.Location.Y + (this.Height - dialog.Height) / 2
@@ -1954,6 +1939,7 @@ namespace MP3PlayerV2
             }
 
             var dialog = new ThemableProcessingDialog("Loading Playlist") { StartPosition = FormStartPosition.Manual };
+            dialog.Icon = Icon;
             dialog.Location = new(
                 this.Location.X + (this.Width - dialog.Width) / 2,
                 this.Location.Y + (this.Height - dialog.Height) / 2
@@ -2283,6 +2269,7 @@ namespace MP3PlayerV2
         /// <param name="e">The event data, which can be used to cancel the opening of the context menu.</param>
         private void ContextMenu_Opening(object sender, CancelEventArgs e)
         {
+            if (playListBox.SelectedItem == null) return;
             var track = _playlistManager.GetByText(playListBox.SelectedItem.ToString());
             UpdateRatingMenuItems(cms_Main, track);
         }
@@ -2478,6 +2465,7 @@ namespace MP3PlayerV2
 
                 var dialog = new ThemableProcessingDialog($"Resetting {resetTag}...") { StartPosition = FormStartPosition.Manual };
                 dialog.Show(this);
+                dialog.Icon = Icon;
                 dialog.Location = new Point(
                     this.Location.X + (this.Width - dialog.Width) / 2,
                     this.Location.Y + (this.Height - dialog.Height) / 2
@@ -2615,7 +2603,7 @@ namespace MP3PlayerV2
 
             //Not Final Key combos
             if (e.Control && e.KeyCode == Keys.L) { UserRateTrack(playListBox.SelectedItem.ToString(), "like"); return; }
-            else if (e.Control && e.KeyCode == Keys.D) { UserRateTrack(playListBox.SelectedItem.ToString() , "dislike"); return; }
+            else if (e.Control && e.KeyCode == Keys.D) { UserRateTrack(playListBox.SelectedItem.ToString(), "dislike"); return; }
             else if (e.Control && e.KeyCode == Keys.N) { UserRateTrack(playListBox.SelectedItem.ToString(), "neutral"); return; }
 
             switch (e.KeyCode)
@@ -2656,10 +2644,22 @@ namespace MP3PlayerV2
         private void PlayList_DragDrop(object sender, DragEventArgs e)
         {
 
-            if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                string[] droppedFiles = (string[])e.Data.GetData(DataFormats.FileDrop);
+                HandleDroppedFiles(droppedFiles);
+            }
 
-            string[] droppedFiles = (string[])e.Data.GetData(DataFormats.FileDrop);
-            HandleDroppedFiles(droppedFiles);
+        }
+
+        /// <summary>
+        /// Handles the event triggered when a playlist is reordered.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The event data containing the old and new indices of the reordered items.</param>
+        private void Playlist_Reordered(object sender, BazthalLib.Events.ItemsReorderedEventArgs e)
+        {
+            _playlistManager.Reorder(e.OldIndices, e.NewIndices);
         }
 
         #endregion Listbox
@@ -2706,7 +2706,7 @@ namespace MP3PlayerV2
                     else
                     { TrackRatingManager.ApplyPlayCompleted(_currentTrackModel, _settings.TrackRating); }
 
-                    TrackDatabase.SaveStats(_currentTrackModel);
+                    TrackDatabase.SaveStats(_currentTrackModel); // May want to move this out of timer to prevent multiple firing
                     NextTrack(true);
                     _trackEnd = false;
                     _userSeeked = false;
@@ -2932,7 +2932,7 @@ namespace MP3PlayerV2
             {
                 Invoke = action => this.Invoke(action),
                 Respond = BuildResponseMessage,
-                GetPlaylistCount = () => playListBox.Items.Count,
+                GetPlaylistCount = () => _playlistManager.Count,
                 Play = Play,
                 Pause = Pause,
                 Stop = Stop,
@@ -2960,7 +2960,7 @@ namespace MP3PlayerV2
                 GetSelectedTrackName = () => playListBox.SelectedItem?.ToString() ?? "Unknown",
                 SelectRandomTrack = () => GetRandomTrack(),
 
-                IsPlaylistEmpty = () => playListBox.Items.Count == 0,
+                IsPlaylistEmpty = () => _playlistManager.Count == 0,
                 GetPlaylistTracks = () => _playlistManager.Tracks,
                 NormalizeText = s => NormalizeText(s),
 

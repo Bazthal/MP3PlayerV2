@@ -133,7 +133,7 @@ namespace MP3PlayerV2.Services
         public Track? GetByText(string text)
         {
             if (string.IsNullOrWhiteSpace(text)) return null;
-            Track track = null;
+            Track track = new();
 
             for (int i = 0; i < Count; i++)
             {
@@ -143,6 +143,80 @@ namespace MP3PlayerV2.Services
 
             return track != null? track : null ;
 
+        }
+
+        /// <summary>
+        /// Reorders items in the playlist based on the specified old and new indices.
+        /// </summary>
+        /// <remarks>This method reorders multiple items in the playlist in a single operation. If only
+        /// one item is being moved, the operation is optimized for that case. The indices in <paramref
+        /// name="oldIndices"/> and  <paramref name="newIndices"/> must be aligned such that the item at position
+        /// <c>i</c> in  <paramref name="oldIndices"/> is moved to the position specified by <paramref
+        /// name="newIndices"/>[i].  After the reordering operation, the <c>PlaylistChanged</c> event is raised to
+        /// notify listeners of the update.</remarks>
+        /// <param name="oldIndices">A read-only list of integers representing the current indices of the items to be reordered. Each index must
+        /// correspond to an item in the playlist.</param>
+        /// <param name="newIndices">A read-only list of integers representing the target indices for the items being reordered. Each index
+        /// specifies the new position for the corresponding item in <paramref name="oldIndices"/>.</param>
+        /// <exception cref="ArgumentException">Thrown if <paramref name="oldIndices"/> and <paramref name="newIndices"/> do not have the same count.</exception>
+        public void Reorder(IReadOnlyList<int> oldIndices, IReadOnlyList<int> newIndices)
+        {
+            if (oldIndices.Count != newIndices.Count)
+                throw new ArgumentException("Old and new indices must have the same count.");
+
+            if (oldIndices.Count == 1)
+            {
+                Move(oldIndices[0], newIndices[0]);
+                return;
+            }
+
+            var movedTracks = oldIndices.Select(i => _tracks[i]).ToList();
+
+            foreach (var i in oldIndices.OrderByDescending(i => i))
+            {
+                _tracks.RemoveAt(i);
+            }
+
+            for (int n = 0; n < movedTracks.Count; n++)
+            {
+                int targetIndex = newIndices[n];
+                if (targetIndex > _tracks.Count)
+                    targetIndex = _tracks.Count;
+
+                _tracks.Insert(targetIndex, movedTracks[n]);
+            }
+
+            PlaylistChanged?.Invoke();
+        }
+
+        /// <summary>
+        /// Moves an item from one index to another within the playlist.
+        /// </summary>
+        /// <remarks>If <paramref name="newIndex"/> is greater than <paramref name="oldIndex"/>, the
+        /// target index is adjusted to account for the removal of the item at <paramref name="oldIndex"/>. After the
+        /// move operation, the <c>PlaylistChanged</c> event is raised to notify subscribers of the change.</remarks>
+        /// <param name="oldIndex">The zero-based index of the item to move. Must be within the valid range of the playlist.</param>
+        /// <param name="newIndex">The zero-based index to which the item should be moved. If the value is less than 0, the item is moved to
+        /// the beginning of the playlist. If the value is greater than or equal to the number of items in the playlist,
+        /// the item is moved to the end.</param>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown if <paramref name="oldIndex"/> is less than 0 or greater than or equal to the number of items in the
+        /// playlist.</exception>
+        public void Move(int oldIndex, int newIndex)
+        {
+            if (oldIndex < 0 || oldIndex >= _tracks.Count)
+                throw new ArgumentOutOfRangeException(nameof(oldIndex));
+
+            if (newIndex < 0) newIndex = 0;
+            if (newIndex >= _tracks.Count) newIndex = _tracks.Count - 1;
+
+            var track = _tracks[oldIndex];
+            _tracks.RemoveAt(oldIndex);
+
+            if (newIndex > oldIndex) newIndex--;
+
+            _tracks.Insert(newIndex, track);
+
+            PlaylistChanged?.Invoke();
         }
 
         public int Count => _tracks.Count;
