@@ -1,6 +1,6 @@
 ﻿using MP3PlayerV2.Models;
 
-namespace MP3PlayerV2.Commands.System
+namespace MP3PlayerV2.Commands.Core
 {
     /// <summary>
     /// Handles the <c>ResetStat</c> command, allowing the user to reset specific playback statistics
@@ -10,7 +10,14 @@ namespace MP3PlayerV2.Commands.System
     /// This command validates the provided playlist context, ensures a target statistic is specified,
     /// and confirms that a valid range or order parameter is supplied before performing the reset.
     /// </remarks>
-    [Command("ResetStat")]
+    [Command(
+        name: "resetstat",
+        author: "Bazthal",
+        version: "1.0.0",
+        description: "Resets specified playback statistics (e.g., play count, last played, skip count, rating) in memory and in the database for selected tracks or the entire playlist.",
+        category: "Core",
+        example: "{ \"Command\": \"ResetStat\", \"Value\": \"PlayCount\" , \"Range\": \"Selected\" }"
+        )]
     public class ResetStatsCommand : ICommandHandler
     {
         /// <summary>
@@ -32,20 +39,20 @@ namespace MP3PlayerV2.Commands.System
         {
             if (ctx.IsPlaylistEmpty())
             {
-                ctx.Respond(false, "Playlist is empty", null);
+                ctx.Respond(cmd.Command, false, "Playlist is empty", null);
                 return false;
             }
 
             if (string.IsNullOrWhiteSpace(cmd.Value))
             {
-                ctx.Respond(false, "No Stat selected for reset", null);
+                ctx.Respond(cmd.Command, false, "No Stat selected for reset", null);
                 return false;
             }
 
             //Temporally use both Range and Order to allow adoption to new property
             if (string.IsNullOrWhiteSpace(cmd.Range) && string.IsNullOrWhiteSpace(cmd.Order))
             {
-                ctx.Respond(false, "Range is not set", null);
+                ctx.Respond(cmd.Command, false, "Range is not set", null);
                 return false;
             }
 
@@ -70,7 +77,7 @@ namespace MP3PlayerV2.Commands.System
                     validStat = _appSettings.CommandBehaviour.AllowRemoteDatabaseWipe;
                     break;
                 default:
-                    ctx.Respond(false, "Unknown stat set for reset", cmd.Value);
+                    ctx.Respond(cmd.Command, false, "Unknown stat set for reset", cmd.Value);
                     validStat = false;
                     return false;
             }
@@ -79,11 +86,11 @@ namespace MP3PlayerV2.Commands.System
             if (validStat && !string.IsNullOrWhiteSpace(range))
             {
                 ctx.ResetStat(range, stat);
-                ctx.Respond(true, $"{stat} stat has been reset for range: {range}", null);
+                ctx.Respond(cmd.Command, true, $"{stat} stat has been reset for range: {range}", null);
                 return true;
             }
 
-            ctx.Respond(false, "Unable to reset stats", null);
+            ctx.Respond(cmd.Command, false, "Unable to reset stats", null);
             return false;
         }
     }

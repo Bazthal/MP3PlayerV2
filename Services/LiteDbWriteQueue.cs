@@ -1,4 +1,5 @@
 ﻿using System.Threading.Channels;
+using static BazthalLib.DebugUtils;
 
 namespace MP3PlayerV2.Services
 {
@@ -44,7 +45,7 @@ namespace MP3PlayerV2.Services
                 }
                 catch (Exception ex)
                 {
-                    BazthalLib.DebugUtils.Log("LiteDbWriteQueue", "Exception", ex.ToString());
+                    BazthalLib.DebugUtils.Log("LiteDbWriteQueue", "Exception", ex.ToString(), logLevel: LogLevel.Error);
                 }
                 finally
                 {

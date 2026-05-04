@@ -436,16 +436,16 @@
     <value>Top, Bottom, Left, Right</value>
   </data>
   <metadata name="cms_Main.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-    <value>514, 24</value>
+    <value>517, 28</value>
   </metadata>
   <data name="cms_Add.Size" type="System.Drawing.Size, System.Drawing">
-    <value>168, 22</value>
+    <value>192, 22</value>
   </data>
   <data name="cms_Add.Text" xml:space="preserve">
     <value>Add Music</value>
   </data>
   <data name="cms_Remove.Size" type="System.Drawing.Size, System.Drawing">
-    <value>168, 22</value>
+    <value>192, 22</value>
   </data>
   <data name="cms_Remove.Text" xml:space="preserve">
     <value>Remove Selected</value>
@@ -595,40 +595,76 @@
     <value>Rating</value>
   </data>
   <data name="cms_Sort.Size" type="System.Drawing.Size, System.Drawing">
-    <value>168, 22</value>
+    <value>192, 22</value>
   </data>
   <data name="cms_Sort.Text" xml:space="preserve">
     <value>Sort Playlist</value>
   </data>
   <data name="cms_Shuffle.Size" type="System.Drawing.Size, System.Drawing">
-    <value>168, 22</value>
+    <value>192, 22</value>
   </data>
   <data name="cms_Shuffle.Text" xml:space="preserve">
     <value>Shuffle Playlist</value>
   </data>
+  <data name="cms_CreatePlaylist_Unplayed.Size" type="System.Drawing.Size, System.Drawing">
+    <value>139, 22</value>
+  </data>
+  <data name="cms_CreatePlaylist_Unplayed.Text" xml:space="preserve">
+    <value>Unplayed</value>
+  </data>
+  <data name="cms_CreatePlaylist_MostPlayed.Size" type="System.Drawing.Size, System.Drawing">
+    <value>139, 22</value>
+  </data>
+  <data name="cms_CreatePlaylist_MostPlayed.Text" xml:space="preserve">
+    <value>Most Played</value>
+  </data>
+  <data name="cms_CreatePlaylist_Liked.Size" type="System.Drawing.Size, System.Drawing">
+    <value>139, 22</value>
+  </data>
+  <data name="cms_CreatePlaylist_Liked.Text" xml:space="preserve">
+    <value>Liked</value>
+  </data>
+  <data name="cms_CreatePlaylist_NoDislikes.Size" type="System.Drawing.Size, System.Drawing">
+    <value>139, 22</value>
+  </data>
+  <data name="cms_CreatePlaylist_NoDislikes.Text" xml:space="preserve">
+    <value>No Disliked</value>
+  </data>
+  <data name="cms_CreatePlaylist.Size" type="System.Drawing.Size, System.Drawing">
+    <value>192, 22</value>
+  </data>
+  <data name="cms_CreatePlaylist.Text" xml:space="preserve">
+    <value>Create Playlist</value>
+  </data>
+  <data name="cms_ShowDuration.Size" type="System.Drawing.Size, System.Drawing">
+    <value>192, 22</value>
+  </data>
+  <data name="cms_ShowDuration.Text" xml:space="preserve">
+    <value>Show Playlist Duration</value>
+  </data>
   <data name="cms_Clear.Size" type="System.Drawing.Size, System.Drawing">
-    <value>168, 22</value>
+    <value>192, 22</value>
   </data>
   <data name="cms_Clear.Text" xml:space="preserve">
     <value>Clear Playlist</value>
   </data>
   <data name="cms_Load.Size" type="System.Drawing.Size, System.Drawing">
-    <value>168, 22</value>
+    <value>192, 22</value>
   </data>
   <data name="cms_Load.Text" xml:space="preserve">
     <value>Load Playlist</value>
   </data>
   <data name="cms_Save.Size" type="System.Drawing.Size, System.Drawing">
-    <value>168, 22</value>
+    <value>192, 22</value>
   </data>
   <data name="cms_Save.Text" xml:space="preserve">
     <value>Save Playlist</value>
   </data>
   <data name="toolStripSeparator5.Size" type="System.Drawing.Size, System.Drawing">
-    <value>165, 6</value>
+    <value>189, 6</value>
   </data>
   <data name="cms_TrackInformation.Size" type="System.Drawing.Size, System.Drawing">
-    <value>168, 22</value>
+    <value>192, 22</value>
   </data>
   <data name="cms_TrackInformation.Text" xml:space="preserve">
     <value>Track Information</value>
@@ -652,7 +688,7 @@
     <value>Dislike</value>
   </data>
   <data name="cms_RateTrack.Size" type="System.Drawing.Size, System.Drawing">
-    <value>168, 22</value>
+    <value>192, 22</value>
   </data>
   <data name="cms_RateTrack.Text" xml:space="preserve">
     <value>Rate Track</value>
@@ -775,19 +811,19 @@
     <value>All</value>
   </data>
   <data name="cms_Reset.Size" type="System.Drawing.Size, System.Drawing">
-    <value>168, 22</value>
+    <value>192, 22</value>
   </data>
   <data name="cms_Reset.Text" xml:space="preserve">
     <value>Reset</value>
   </data>
   <data name="cms_Exit.Size" type="System.Drawing.Size, System.Drawing">
-    <value>168, 22</value>
+    <value>192, 22</value>
   </data>
   <data name="cms_Exit.Text" xml:space="preserve">
     <value>Exit</value>
   </data>
   <data name="cms_Main.Size" type="System.Drawing.Size, System.Drawing">
-    <value>169, 252</value>
+    <value>193, 296</value>
   </data>
   <data name="&gt;&gt;cms_Main.Name" xml:space="preserve">
     <value>cms_Main</value>
@@ -8158,6 +8194,42 @@
     <value>cms_Shuffle</value>
   </data>
   <data name="&gt;&gt;cms_Shuffle.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;cms_CreatePlaylist.Name" xml:space="preserve">
+    <value>cms_CreatePlaylist</value>
+  </data>
+  <data name="&gt;&gt;cms_CreatePlaylist.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;cms_CreatePlaylist_Unplayed.Name" xml:space="preserve">
+    <value>cms_CreatePlaylist_Unplayed</value>
+  </data>
+  <data name="&gt;&gt;cms_CreatePlaylist_Unplayed.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;cms_CreatePlaylist_MostPlayed.Name" xml:space="preserve">
+    <value>cms_CreatePlaylist_MostPlayed</value>
+  </data>
+  <data name="&gt;&gt;cms_CreatePlaylist_MostPlayed.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;cms_CreatePlaylist_Liked.Name" xml:space="preserve">
+    <value>cms_CreatePlaylist_Liked</value>
+  </data>
+  <data name="&gt;&gt;cms_CreatePlaylist_Liked.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;cms_CreatePlaylist_NoDislikes.Name" xml:space="preserve">
+    <value>cms_CreatePlaylist_NoDislikes</value>
+  </data>
+  <data name="&gt;&gt;cms_CreatePlaylist_NoDislikes.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;cms_ShowDuration.Name" xml:space="preserve">
+    <value>cms_ShowDuration</value>
+  </data>
+  <data name="&gt;&gt;cms_ShowDuration.Type" xml:space="preserve">
     <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;cms_Clear.Name" xml:space="preserve">

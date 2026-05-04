@@ -12,6 +12,8 @@ namespace MP3PlayerV2.Services
         /// <param name="settings">The rating settings to use for calculation.</param>
         public static void ApplyPlayStart(Track track, TrackRatingSettings settings)
         {
+            if (track == null || settings == null)
+                return;
             track.PlayCount++;
             track.LastUpdated = DateTime.Now;
             UpdateStarRating(track, settings);
@@ -24,6 +26,8 @@ namespace MP3PlayerV2.Services
         /// <param name="settings">The rating settings to use for calculation.</param>
         public static void ApplyPlayCompleted(Track track, TrackRatingSettings settings)
         {
+            if (track == null || settings == null)
+                return;
             track.PlayCompleteCount++;
             track.RatingScore += settings.NoSkipReward;
             track.LastUpdated = DateTime.Now;
@@ -37,6 +41,8 @@ namespace MP3PlayerV2.Services
         /// <param name="settings">The rating settings to use for calculation.</param>
         public static void ApplyReplay(Track track, TrackRatingSettings settings)
         {
+            if (track == null || settings == null)
+                return;
             track.RatingScore += settings.ReplayReward;
             UpdateStarRating(track, settings);
         }
@@ -49,6 +55,8 @@ namespace MP3PlayerV2.Services
         /// <param name="secondsPlayed">The number of seconds played before skipping.</param>
         public static void ApplySkip(Track track, TrackRatingSettings settings, int secondsPlayed)
         {
+            if (track == null || settings == null)
+                return;
             track.SkipCount++;
             if (track.DurationSeconds is null || track.DurationSeconds <= 0) return;
 
@@ -78,6 +86,8 @@ namespace MP3PlayerV2.Services
         /// <param name="settings">The rating settings to use for calculation.</param>
         public static void ApplySeekToEnd(Track track, TrackRatingSettings settings)
         {
+            if (track == null || settings == null)
+                return;
             track.RatingScore -= settings.SeekToEndPenalty;
             UpdateStarRating(track, settings);
         }
@@ -93,6 +103,9 @@ namespace MP3PlayerV2.Services
         /// <param name="settings">The settings that define the boost to apply to the track's rating score. Must not be null.</param>
         public static void ApplyManualLike(Track track, TrackRatingSettings settings)
         {
+            if (track == null || settings == null)
+                return;
+
             if (track.Liked) return;
 
 
@@ -108,13 +121,16 @@ namespace MP3PlayerV2.Services
         /// <summary>
         /// Applies a manual dislike to the specified track, adjusting its rating score and updating its state.
         /// </summary>
-        /// <remarks>This method decreases the track's rating score by the penalty specified in <paramref
+        /// <remarks>This method decreases the track's rating score by the penalty specified in <paramref 
         /// name="settings"/>  and marks the track as disliked. If the track was previously liked, its liked state is
         /// cleared. Additionally, the star rating of the track is updated based on the new rating score.</remarks>
         /// <param name="track">The track to which the manual dislike will be applied. Cannot be null.</param>
         /// <param name="settings">The settings that define the penalty applied to the track's rating score. Cannot be null.</param>
         public static void ApplyManualDislike(Track track, TrackRatingSettings settings)
         {
+            if (track == null || settings == null)
+                return;
+
             if (track.Disliked) return;
 
             if (track.Liked)
@@ -138,6 +154,9 @@ namespace MP3PlayerV2.Services
         /// null.</param>
         public static void ApplyNeutral(Track track, TrackRatingSettings settings)
         {
+            if (track == null || settings == null)
+                return;
+
             if (track.Liked)
                 track.RatingScore -= settings.ManualLikeBoost;
             else if (track.Disliked)
@@ -155,6 +174,8 @@ namespace MP3PlayerV2.Services
         /// <param name="settings">The rating settings to use for calculation.</param>
         public static void ApplyMonthlyDecay(Track track, TrackRatingSettings settings)
         {
+            if (track == null || settings == null)
+                return;
             var now = DateTime.Now;
             if (track.LastDecayApplied == null ||
                 (now - track.LastDecayApplied.Value).TotalDays >= 30)
@@ -172,6 +193,8 @@ namespace MP3PlayerV2.Services
         /// <param name="settings">The rating settings to use for calculation.</param>
         private static void UpdateStarRating(Track track, TrackRatingSettings settings)
         {
+            if (track == null || settings == null)
+                return;
             if (track.RatingScore >= settings.FiveStarMinScore)
                 track.StarRating = 5;
             else if (track.RatingScore >= settings.FourStarMinScore)
@@ -185,5 +208,5 @@ namespace MP3PlayerV2.Services
 
         }
     }
-
+    
 }

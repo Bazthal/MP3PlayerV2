@@ -2,6 +2,7 @@
 using BazthalLib.Controls;
 using MP3PlayerV2.Models;
 using MP3PlayerV2.Services;
+using System.Diagnostics;
 using static MP3PlayerV2.MP3PlayerV2;
 
 namespace MP3PlayerV2
@@ -71,14 +72,20 @@ namespace MP3PlayerV2
         /// a known default state.</remarks>
         private void SetDefault()
         {
-            _appSettings.Playback = new PlaybackSettings();
-            _appSettings.PlayData = new PlayDataSettings();
-            _appSettings.WebSocket = new WebSocketSettings();
-            _appSettings.SmartShuffle = new SmartShuffleSettings();
-            _appSettings.TrackRating = new TrackRatingSettings();
-            _appSettings.CommandBehaviour = new CommandBehaviourSettings();
-            UpdateFromSettings(); // Load From Settings
-            UpdateSettings(); // Save Default Settings
+
+            var confirm = ThemableMessageBox.Show("Are you sure you want to reset to default?", "Reset to Default", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
+            if (confirm)
+            {
+                _appSettings.Playback = new PlaybackSettings();
+                _appSettings.PlayData = new PlayDataSettings();
+                _appSettings.WebSocket = new WebSocketSettings();
+                _appSettings.SmartShuffle = new SmartShuffleSettings();
+                _appSettings.TrackRating = new TrackRatingSettings();
+                _appSettings.CommandBehaviour = new CommandBehaviourSettings();
+                UpdateFromSettings(); // Load From Settings
+                UpdateSettings();
+            }
+
         }
 
         /// <summary>
@@ -372,6 +379,145 @@ namespace MP3PlayerV2
         private void ResetButton_Click(object sender, EventArgs e)
         {
             SetDefault();
+        }
+
+        /// <summary>
+        /// Handles the click event for the "Merge Duplicates" button, initiating the process of deduplicating entries
+        /// in the track database.
+        /// </summary>
+        /// <remarks>This method prompts the user to choose between performing a dry run or directly
+        /// applying deduplication changes.  A dry run simulates the deduplication process without making any changes,
+        /// allowing the user to review potential merges. If the user opts to proceed, the method performs the
+        /// deduplication process asynchronously, displaying progress in a processing dialog.  The method also provides
+        /// a summary of the results, including the number of merged and skipped entries, and optionally saves a report
+        /// to a file.  Exceptions and cancellations are handled gracefully, ensuring the dialog is closed properly in
+        /// all cases.</remarks>
+        /// <param name="sender">The source of the event, typically the "Merge Duplicates" button.</param>
+        /// <param name="e">An <see cref="EventArgs"/> instance containing the event data.</param>
+        private async void MergeDupes_Click(object sender, EventArgs e)
+        {
+            var dlgResult = ThemableMessageBox.Show(
+                "This will attempt to merge possible duplicated entries.\n" +
+                "Do you want to perform a dry run first?",
+                "Merge Duplicates",
+                MessageBoxButtons.YesNoCancel,
+                MessageBoxIcon.Warning
+            );
+
+            if (dlgResult == DialogResult.Cancel)
+                return;
+
+            var dialog = new ThemableProcessingDialog("Deduplicating tracks...")
+            {
+                StartPosition = FormStartPosition.Manual,
+                Icon = Icon,
+                Location = new Point(
+                    this.Location.X + (this.Width - 400) / 2,
+                    this.Location.Y + (this.Height - 200) / 2
+                )
+            };
+
+            bool isDryRun = dlgResult == DialogResult.Yes;
+
+            try
+            {
+                dialog.Show(this);
+
+                var report = await TrackDatabase.DeduplicateDatabaseAsync(
+                    reportProgress: (current, total, eta) => dialog.SetProgress("Group", current, total, eta),
+                    cancellationToken: dialog.Token,
+                    dryRun: isDryRun,
+                    saveReportToFile: true
+                );
+
+                // Show result summary
+                string summary = isDryRun
+                    ? $"Dry run complete. - Potential merges: {report.Merged.Count} - Skipped: {report.Skipped.Count}\n\nApply changes now?"
+                    : $"Deduplication complete. - Merged: {report.Merged.Count} - Skipped: {report.Skipped.Count}";
+
+                if (isDryRun)
+                {
+                    var apply = ThemableMessageBox.Show(
+                        summary,
+                        "Apply Deduplication",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Question
+                    );
+
+                    if (apply == DialogResult.Yes)
+                    {
+                        dialog.Text = "Applying deduplication...";
+                        var realResult = await TrackDatabase.DeduplicateDatabaseAsync(
+                            reportProgress: (current, total, eta) => dialog.SetProgress("Group", current, total, eta),
+                            cancellationToken: dialog.Token,
+                            dryRun: false,
+                            saveReportToFile: true
+                        );
+
+                        dialog.SetCompleted($"Deduplication applied. - Merged: {realResult.Merged.Count} - Skipped: {realResult.Skipped.Count}");
+                        dialog.CloseAfter(2000);
+
+                        await PromptOpenReportAsync();
+                        return;
+                    }
+                }
+
+                dialog.SetCompleted(summary.Replace("Apply changes now?", "").Trim());
+                dialog.CloseAfter(2000);
+
+                await PromptOpenReportAsync();
+            }
+            catch (OperationCanceledException)
+            {
+                dialog.SetCompleted("Operation cancelled.");
+                dialog.CloseAfter(1000);
+            }
+            catch (Exception ex)
+            {
+                dialog.SetCompleted($"Error: {ex.Message}");
+                dialog.CloseAfter(2000);
+            }
+            finally
+            {
+                if (!dialog.IsDisposed)
+                    dialog.Close();
+            }
+        }
+
+        /// <summary>
+        /// Prompts the user to open the most recently generated deduplication report, if one exists.
+        /// </summary>
+        /// <remarks>This method searches for deduplication reports in the "Playdata" directory within the
+        /// application's startup path. If a report is found, the user is prompted with a message box to decide whether
+        /// to open the latest report. The method does nothing if no reports are found.</remarks>
+        /// <returns></returns>
+        private static async Task PromptOpenReportAsync()
+        {
+            var baseDir = Path.Combine(Application.StartupPath, "Playdata");
+            var reports = Directory.GetFiles(baseDir, "dedupe_report_*.json")
+                                   .OrderByDescending(File.GetCreationTime)
+                                   .ToList();
+
+            if (reports.Count == 0)
+                return;
+
+            var latest = reports.First();
+
+            await Task.Delay(3000);
+
+            if (ThemableMessageBox.Show(
+                "A deduplication report has been generated.\nDo you want to open it now?",
+                "View Report",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Information
+            ) == DialogResult.Yes)
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = latest,
+                    UseShellExecute = true
+                });
+            }
         }
     }
 }

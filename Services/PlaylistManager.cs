@@ -1,21 +1,41 @@
-﻿using BazthalLib;
-using MP3PlayerV2.Models;
-using System.Diagnostics;
-using System.Text;
+﻿using MP3PlayerV2.Models;
 
 namespace MP3PlayerV2.Services
 {
     /// <summary>
-    /// Manages a collection of tracks in a playlist, providing functionality to add, remove, shuffle, and persist
-    /// tracks.
+    /// Manages a collection of tracks in a playlist, providing functionality to add, remove, shuffle, and reorder tracks.
     /// </summary>
-    /// <remarks>The <see cref="PlaylistManager"/> class allows for the management of a playlist through
-    /// various operations such as adding or removing tracks, shuffling the playlist, and saving or loading playlists in
-    /// M3U format. It also provides event notifications when the playlist is modified.</remarks>
+    /// <remarks>The <see cref="PlaylistManager"/> class focuses solely on managing the playlist collection.
+    /// For file I/O operations, use <see cref="PlaylistFileService"/>.
+    /// For track creation from files, use <see cref="TrackFileProcessor"/>.</remarks>
     public class PlaylistManager
     {
-
         private readonly List<Track> _tracks = [];
+        private readonly TrackDurationCache _durationCache;
+        private readonly TrackFileProcessor _trackProcessor;
+        private readonly PlaylistFileService _fileService;
+
+        public PlaylistManager()
+        {
+            _durationCache = new TrackDurationCache();
+            _trackProcessor = new TrackFileProcessor(_durationCache);
+            _fileService = new PlaylistFileService(_trackProcessor);
+        }
+
+        /// <summary>
+        /// Gets the track duration cache for accessing track durations.
+        /// </summary>
+        public TrackDurationCache DurationCache => _durationCache;
+
+        /// <summary>
+        /// Gets the track file processor for creating tracks from audio files.
+        /// </summary>
+        public TrackFileProcessor TrackProcessor => _trackProcessor;
+
+        /// <summary>
+        /// Gets the playlist file service for loading and saving playlists.
+        /// </summary>
+        public PlaylistFileService FileService => _fileService;
 
         /// <summary>
         /// Gets a read-only list of tracks.
@@ -137,14 +157,14 @@ namespace MP3PlayerV2.Services
 
             for (int i = 0; i < Count; i++)
             {
-                if (_tracks[i].ToString().Contains(text))
+                if (_tracks[i].ToString().Equals(text))
                 { track = _tracks[i]; break; }
             }
 
-            return track != null? track : null ;
+            return track != null ? track : null;
 
         }
-
+        
         /// <summary>
         /// Reorders items in the playlist based on the specified old and new indices.
         /// </summary>
@@ -219,227 +239,120 @@ namespace MP3PlayerV2.Services
             PlaylistChanged?.Invoke();
         }
 
+        /// <summary>
+        /// Sets the order of tracks in the collection.
+        /// </summary>
+        /// <remarks>This method clears the existing collection of tracks and replaces it with the
+        /// specified tracks in the given order. The collection will exactly match the order of the provided <paramref
+        /// name="orderedTracks"/>.</remarks>
+        /// <param name="orderedTracks">An <see cref="IEnumerable{T}"/> of <see cref="Track"/> objects representing the tracks in the desired order.</param>
+        public void SetOrder(IEnumerable<Track> orderedTracks)
+        {
+            _tracks.Clear();
+            _tracks.AddRange(orderedTracks);
+        }
+
+        /// <summary>
+        /// Retrieves the duration of the specified track.
+        /// </summary>
+        /// <param name="track">The track for which to retrieve the duration.</param>
+        /// <returns>A <see cref="TimeSpan"/> representing the duration of the track.</returns>
+        public TimeSpan GetDuration(Track track)
+        {
+            return _durationCache.GetDuration(track);
+        }
+
+        /// <summary>
+        /// Processes a collection of file paths asynchronously, creating tracks from the files and optionally replacing
+        /// the current playlist.
+        /// </summary>
+        /// <param name="files">A collection of file paths to process.</param>
+        /// <param name="reportProgress">An optional callback to report progress during processing.</param>
+        /// <param name="replacePlaylist">A value indicating whether to replace the current playlist with the processed tracks.</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+        /// <returns>A task that represents the asynchronous operation containing a list of <see cref="Track"/> objects.</returns>
+        public async Task<List<Track>> ProcessFilesAsync(
+            IEnumerable<string> files,
+            Action<int, int, string?>? reportProgress,
+            bool replacePlaylist,
+            CancellationToken cancellationToken)
+        {
+            var orderedTracks = await _trackProcessor.ProcessFilesAsync(files, reportProgress, cancellationToken);
+
+            if (replacePlaylist)
+            {
+                _tracks.Clear();
+                _tracks.AddRange(orderedTracks);
+            }
+            else
+            {
+                AddRange(orderedTracks);
+            }
+            PlaylistChanged?.Invoke();
+            MP3PlayerV2.Instance.CleanupIfNeeded(orderedTracks.Count);
+            return orderedTracks;
+        }
+
         public int Count => _tracks.Count;
 
         /// <summary>
         /// Saves the current playlist to a file in M3U format.
         /// </summary>
-        /// <remarks>The M3U file format is a plain text format used for creating multimedia playlists.
-        /// Each track in the playlist is represented by an entry that includes metadata such as duration and artist
-        /// information.</remarks>
-        /// <param name="filePath">The path to the file where the M3U playlist will be saved. Cannot be null or empty.</param>
-        public void SaveToM3U(string filePath)
+        /// <param name="filePath">The path to the file where the M3U playlist will be saved.</param>
+        /// <param name="overrideList">An optional list of tracks to save instead of the current playlist.</param>
+        public void SaveToM3U(string filePath, List<Track>? overrideList = null)
         {
-            var sb = new StringBuilder();
-            sb.AppendLine("#EXTM3U");
-
-            foreach (var track in _tracks)
-            {
-                sb.AppendLine($"#EXTINF:{track.DurationSeconds},{track.Artist} - {track.Title}");
-                sb.AppendLine(track.FilePath);
-            }
-
-            File.WriteAllText(filePath, sb.ToString());
+            var lst = overrideList ?? _tracks;
+            _fileService.SaveToM3U(filePath, lst);
         }
 
         /// <summary>
-        /// Normalizes a file path by handling URI schemes, decoding URL-encoded characters, and resolving relative
-        /// paths.
+        /// Saves the playlist to a JSON file at the specified file path.
         /// </summary>
-        /// <remarks>This method attempts to decode URI paths that start with "file://". If the path is a
-        /// relative path starting with "..\", it resolves it to the user's Music folder.</remarks>
-        /// <param name="path">The file path to normalize. This can be a URI or a relative path.</param>
-        /// <returns>A normalized file path. Returns an empty string if the input path is null, empty, or consists only of
-        /// white-space characters.</returns>
-        private static string NormalizePath(string path)
+        /// <param name="filePath">The full path of the file where the playlist will be saved.</param>
+        /// <param name="overrideList">An optional list of tracks to save instead of the default playlist.</param>
+        public void SaveToJsonPl(string filePath, List<Track>? overrideList = null)
         {
-            if (string.IsNullOrWhiteSpace(path))
-                return string.Empty;
+            var lst = overrideList ?? _tracks;
+            _fileService.SaveToJsonPl(filePath, lst);
+        }
 
-            // Try URI decoding if it starts with file://
-            if (path.StartsWith("file://", StringComparison.OrdinalIgnoreCase))
-            {
-                try
-                {
-                    var uri = new Uri(path);
-                    path = uri.LocalPath;
-                }
-                catch
-                {
-                    path = path.Replace("file:///", "").Replace('/', '\\');
-                }
-            }
-
-            // Decode URL-encoded characters
-            path = Uri.UnescapeDataString(path);
-
-            // Replace relative Music path if applicable( Windows Media player does this nonsence)
-            if (path.StartsWith("..\\"))
-            {
-                path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), path[3..]);
-            }
-
-            return path.Trim();
-
+        /// <summary>
+        /// Loads a playlist from a JSON file and updates the current playlist with the loaded tracks.
+        /// </summary>
+        /// <param name="filePath">The path to the JSON file containing the playlist data.</param>
+        /// <param name="reportProgress">An optional callback to report progress during the loading process.</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+        public void LoadFromJsonPl(
+            string filePath,
+            Action<int, int, string?>? reportProgress = null,
+            CancellationToken cancellationToken = default)
+        {
+            var tracks = _fileService.LoadFromJsonPl(filePath, reportProgress, cancellationToken);
+            _tracks.Clear();
+            AddRange(tracks);
+            PlaylistChanged?.Invoke();
         }
 
         /// <summary>
         /// Loads a playlist from an M3U or M3U8 file and returns a list of tracks.
         /// </summary>
-        /// <remarks>This method processes both standard M3U and extended M3U files. Tracks are extracted
-        /// from the file paths listed in the playlist,  and metadata such as title, artist, album, and duration is
-        /// loaded from the associated audio files. <para> If the playlist contains invalid or non-existent file paths,
-        /// those entries are skipped. The method uses parallel processing to improve performance,  with a maximum
-        /// concurrency level determined by the system's processor count. </para> <para> The method raises the
-        /// <c>PlaylistChanged</c> event after successfully loading the playlist and updates the internal track
-        /// collection. </para></remarks>
-        /// <param name="filePath">The path to the M3U or M3U8 file to load. The file extension determines the encoding: UTF-8 for ".m3u8" and
-        /// the system default encoding for ".m3u".</param>
-        /// <param name="reportProgress">An optional callback to report progress during the loading process. The callback receives the number of
-        /// tracks processed,  the total number of tracks, and an estimated time remaining as a string (or <see
-        /// langword="null"/> if unavailable).</param>
-        /// <param name="cancellationToken">A token to monitor for cancellation requests. If cancellation is requested, the operation will terminate
-        /// early.</param>
-        /// <returns>A list of <see cref="Track"/> objects representing the tracks in the playlist. The list is ordered based on
-        /// the order of tracks in the M3U file.</returns>
-        public async Task<List<Track>> LoadFromM3U(string filePath, Action<int, int, string?>? reportProgress = null, CancellationToken cancellationToken = default)
+        /// <param name="filePath">The path to the M3U or M3U8 file to load.</param>
+        /// <param name="reportProgress">An optional callback to report progress during the loading process.</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+        /// <returns>A list of <see cref="Track"/> objects representing the tracks in the playlist.</returns>
+        public async Task<List<Track>> LoadFromM3U(
+            string filePath,
+            Action<int, int, string?>? reportProgress = null,
+            CancellationToken cancellationToken = default)
         {
-            var ext = Path.GetExtension(filePath).ToLowerInvariant();
-            var encoding = ext == ".m3u8" ? Encoding.UTF8 : Encoding.Default;
-            var lines = File.ReadAllLines(filePath, encoding);
-
-            var paths = new List<string>();
-
-            for (int i = 0; i < lines.Length; i++)
-            {
-                string line = lines[i].Trim();
-                if (string.IsNullOrWhiteSpace(line)) continue;
-
-                if (line.StartsWith("#EXTINF:", StringComparison.OrdinalIgnoreCase))
-                {
-                    string? path = i + 1 < lines.Length ? NormalizePath(lines[++i].Trim()) : null;
-                    if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
-                        paths.Add(path);
-                }
-                else if (!line.StartsWith('#'))
-                {
-                    var path = NormalizePath(line);
-                    if (File.Exists(path))
-                        paths.Add(path);
-                }
-            }
-
-            int total = paths.Count;
-            int completed = 0;
-            var stopwatch = Stopwatch.StartNew();
-
-            var guidCache = TrackDatabase.PreloadTrackGuids();
-
-            int processorCount = Environment.ProcessorCount;
-            int maxConcurrency = Math.Min(processorCount * 2, processorCount < 8 ? 20 : 40);
-            var semaphore = new SemaphoreSlim(maxConcurrency);
-            var tasks = new List<Task<(int Index, Track? Track)>>();
-
-            for (int i = 0; i < paths.Count; i++)
-            {
-                var path = paths[i];
-                var index = i;
-
-                await semaphore.WaitAsync(CancellationToken.None);
-
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    semaphore.Release();
-                    break;
-                }
-
-                var task = Task.Run(() =>
-                {
-                    try
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-
-                        using (var tagFile = TagLib.File.Create(path))
-                        {
-                            var track = new Track
-                            {
-                                FilePath = path,
-                                Title = !string.IsNullOrEmpty(tagFile.Tag.Title)
-                                    ? tagFile.Tag.Title
-                                    : Path.GetFileNameWithoutExtension(path),
-                                Artist = tagFile.Tag.Performers?.Length > 0
-                                    ? string.Join("/", tagFile.Tag.Performers)
-                                    : "Unknown Artist",
-                                Album = !string.IsNullOrEmpty(tagFile.Tag.Album) ? tagFile.Tag.Album : "",
-                                DurationSeconds = (int)tagFile.Properties.Duration.TotalSeconds,
-                                Hash = TrackDatabase.ComputeFileHash(path, false),
-                            };
-                            track.Guid = TrackDatabase.AssignGuidFromCache(track, guidCache);
-                            DebugUtils.Log("Playlist Load", $"{index}", $"{track}");
-                            return (Index: index, Track: track);
-                        }
-                    }
-                    catch (OperationCanceledException)
-                    {
-#nullable disable
-                        return (Index: index, Track: null);
-#nullable enable
-                    }
-                    catch (Exception ex)
-                    {
-                        DebugUtils.Log("LoadFromM3U", "PlaylistManager", ex.Message);
-#nullable disable
-                        return (Index: index, Track: null);
-#nullable enable
-                    }
-                    finally
-                    {
-                        int current = Interlocked.Increment(ref completed);
-
-                        string? etaText = null;
-                        if (current % MP3PlayerV2._updateStep == 0 || current == total)
-                        {
-                            double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
-                            double avgPerFile = elapsedSeconds / current;
-                            int remaining = total - current;
-                            double etaSeconds = avgPerFile * remaining;
-
-                            etaText = $"ETA: {TimeSpan.FromSeconds(etaSeconds):mm\\:ss}";
-                        }
-
-                        reportProgress?.Invoke(current, total, etaText);
-                        semaphore.Release();
-                    }
-                });
-#nullable disable
-                tasks.Add(task);
-#nullable enable
-            }
-
-            var results = await Task.WhenAll(tasks);
-
-             foreach (var result in results)
-            {
-                if (result.Track != null)
-                {
-                    TrackDatabase.LoadStats(result.Track);
-                }
-            }
-
-            var orderedTracks = results
-                .Where(r => r.Track != null)
-                .OrderBy(r => r.Index)
-                .Select(r => r.Track!)
-                .ToList();
-
+            var orderedTracks = await _fileService.LoadFromM3U(filePath, reportProgress, cancellationToken);
             _tracks.Clear();
             _tracks.AddRange(orderedTracks);
             PlaylistChanged?.Invoke();
-
             MP3PlayerV2.Instance.CleanupIfNeeded(orderedTracks.Count);
             return orderedTracks;
         }
-
     }
 
 }

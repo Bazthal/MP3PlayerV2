@@ -1,4 +1,6 @@
-﻿namespace MP3PlayerV2.Services
+﻿using System.Diagnostics;
+
+namespace MP3PlayerV2.Services
 {
     internal static class GlobalErrorCatcher
     {
@@ -35,8 +37,23 @@
         /// <param name="ex">The exception to log. Can be <see langword="null"/> to log only the source.</param>
         private static void Log(string source, Exception? ex)
         {
-            var msg = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {source}: {ex}";
+            var msg = ex == null
+                ? $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {source}: No exception information."
+                : $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {source}: {ex}";
             File.AppendAllText(LogFile, msg + Environment.NewLine);
+
+          if (
+          BazthalLib.ThemableMessageBox.Show("An unexpected error occurred and has been logged to CrashLog.txt. Do you want to open the log file?",
+                "Unexpected Error", MessageBoxButtons.YesNo, MessageBoxIcon.Error) == DialogResult.Yes
+            )
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = LogFile,
+                    UseShellExecute = true
+                });
+            {
+                Environment.Exit(1);
+            }
         }
     }
 

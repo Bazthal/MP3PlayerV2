@@ -15,6 +15,8 @@
         public SmartShuffleSettings SmartShuffle { get; set; } = new();
         public TrackRatingSettings TrackRating { get; set; } = new();
         public CommandBehaviourSettings CommandBehaviour { get; set; } = new();
+        public DebugSettings Debug { get; set; } = new();
+        public ApplicationSettings Application { get; set; } = new();
     }
 
     /// <summary>
@@ -132,6 +134,38 @@
         public bool IncludeTracksInCount { get; set; } = false;
         public bool AllowRemoteDatabaseWipe { get; set; } = false;
 
+    }
+
+    /// <summary>
+    /// Represents the configurable settings for the application, including playback behavior, user interface
+    /// preferences, and file association options.*
+    /// </summary>
+    /// <remarks>This class provides properties to control various aspects of the application's behavior, such
+    /// as whether multiple instances are allowed, whether files auto-play on launch, and whether confirmation is
+    /// required before closing the application. Default values are provided for all settings.</remarks>
+    public class ApplicationSettings
+    {
+        public string DefaultPlaylistExtension { get; set; } = ".m3u";
+        public bool AllowMultipleInstances { get; set; } = false;
+        public bool AutoPlayOnFileAssocLaunch { get; set; } = true;
+        public bool EnableConfirmClose { get; set; } = true;
+    }
+
+    /// <summary>
+    /// Represents the settings used to configure debugging options.
+    /// </summary>
+    /// <remarks>This class provides options to enable logging and specify the logging destination.</remarks>
+    public class DebugSettings
+    {
+        /// <summary>
+        /// Gets or sets a value indicating whether logging is enabled.
+        /// </summary>
+        public bool EnableLogging { get; set; } = false;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether logs are saved to file
+        /// </summary>
+        public bool LogToFile { get; set; } = false;
     }
 }
 

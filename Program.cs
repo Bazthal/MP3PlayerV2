@@ -1,3 +1,5 @@
+using MP3PlayerV2.Models;
+using MP3PlayerV2.Services;
 using System.Diagnostics;
 using System.IO.Pipes;
 using System.Text;
@@ -22,16 +24,26 @@ namespace MP3PlayerV2
         [STAThread]
         static void Main(string[]? args = null)
         {
+
+            ApplicationConfiguration.Initialize();
+            ConfigManager.Load();
+            
+            bool enableLogging = Debugger.IsAttached || ConfigManager.Settings.Debug.EnableLogging;
+            bool logToFile = Debugger.IsAttached || ConfigManager.Settings.Debug.LogToFile;
+
+            BazthalLib.DebugUtils.DebugMode = enableLogging;
+            BazthalLib.DebugUtils.LogtoFile = logToFile;
+
             BazthalLib.Systems.IO.Files.CreateDirectory(Path.Combine(Application.StartupPath, "Config"));
             BazthalLib.Systems.IO.Files.CreateDirectory(Path.Combine(Application.StartupPath, "Playdata"));
 
             //Register Error handler logging
             Services.GlobalErrorCatcher.Init();
-
+            
             bool isNewInstance;
             _mutex = new Mutex(true, AppMutex, out isNewInstance);
             // Allow multiple instances when a debugger is attached, enabling simultaneous player usage and development
-            bool allowMultiple = Debugger.IsAttached;
+            bool allowMultiple = (Debugger.IsAttached || ConfigManager.Settings.Application.AllowMultipleInstances);
 
             if (!isNewInstance && !allowMultiple)
             {
@@ -50,7 +62,7 @@ namespace MP3PlayerV2
                 StartPipeServer();
             }
 
-            ApplicationConfiguration.Initialize();
+
 #pragma warning disable WFO5001
             Application.SetColorMode(SystemColorMode.System);
 #pragma warning restore WFO5001
@@ -78,7 +90,9 @@ namespace MP3PlayerV2
                         string[] files = line.Split('|');
                         MP3PlayerV2.Instance?.Invoke(() =>
                         {
-                            MP3PlayerV2.Instance.HandleDroppedFiles(files, true);
+                            bool autoPlay = ConfigManager.Settings.Application.AutoPlayOnFileAssocLaunch;
+                            Console.WriteLine($"Received {files.Length} files via pipe. AutoPlay: {autoPlay}");
+                            MP3PlayerV2.Instance.HandleDroppedFiles(files, autoPlay);
                         });
                     }
                 }

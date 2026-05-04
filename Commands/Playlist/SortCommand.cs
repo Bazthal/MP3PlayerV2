@@ -2,7 +2,22 @@
 
 namespace MP3PlayerV2.Commands.Playlist
 {
-    [Command("sort")]
+    /// <summary>
+    /// Represents a command that sorts a playlist based on a specified field and order.
+    /// </summary>
+    /// <remarks>The <see cref="SortCommand"/> allows sorting a playlist by various fields such as "artist",
+    /// "title",  "lastplayed", "playcount", and others. The sorting can be performed in ascending or descending order, 
+    /// with valid order values being "up", "down", "ascending", and "descending". <para> If the playlist contains fewer
+    /// than two tracks, or if the provided field or order is invalid, the  command will not perform any sorting and
+    /// will return an error response. </para></remarks>
+    [Command(
+        name: "sort",
+        author: "Bazthal",
+        version: "1.0.0",
+        description: "Sorts the playlist by fields such as artist, album, title, play count, last played, rating, liked, or disliked, in ascending or descending order.",
+        category: "Playlist",
+        example: "{ \"Command\": \"Sort\", \"Value\": \"Artist\", \"Order\": \"ascending\" }"
+        )]
     internal class SortCommand : ICommandHandler
     {
         /// <summary>
@@ -19,13 +34,13 @@ namespace MP3PlayerV2.Commands.Playlist
         {
             if (ctx.GetPlaylistCount() <= 1)
             {
-                ctx.Respond(false, "Playlist is either empty or only has 1 track", null);
+                ctx.Respond(cmd.Command, false, "Playlist is either empty or only has 1 track", null);
                 return false;
             }
 
             if (string.IsNullOrWhiteSpace(cmd.Value))
             {
-                ctx.Respond(false, "Value not set; cancelling sorting", null);
+                ctx.Respond(cmd.Command, false, "Value not set; cancelling sorting", null);
                 return false;
             }
 
@@ -33,7 +48,7 @@ namespace MP3PlayerV2.Commands.Playlist
 
             if (string.IsNullOrWhiteSpace(cmd.Order))
             {
-                ctx.Respond(false, "Order not set; cancelling sort", null);
+                ctx.Respond(cmd.Command, false, "Order not set; cancelling sort", null);
                 return false;
             }
 
@@ -42,40 +57,31 @@ namespace MP3PlayerV2.Commands.Playlist
             {
                 case "up":
                 case "ascending":
+                case "asc":
                     descending = false;
                     break;
                 case "down":
                 case "descending":
+                case "desc":
                     descending = true;
                     break;
                 default:
-                    ctx.Respond(false, $"Invalid sort order '{cmd.Order}'. Order should be Up, Down, Ascending or Descending.", null);
+                    ctx.Respond(cmd.Command, false, $"Invalid sort order '{cmd.Order}'. Order should be Up, Down, Ascending or Descending.", null);
                     return false;
             }
 
             string sortField = cmd.Value.ToLowerInvariant();
-#nullable disable
-            Action sortAction = sortField switch
+
+            // Validate sort field
+            var validFields = new[] { "artist", "title", "album", "playcount", "lastplayed", "liked", "disliked", "rating" };
+            if (!validFields.Contains(sortField))
             {
-                "artist" => () => ctx.SortPlaylist(t => t.Artist, descending),
-                "title" => () => ctx.SortPlaylist(t => t.Title, descending),
-                "lastplayed" => () => ctx.SortPlaylist(t => t.LastPlayed, descending),
-                "playcount" => () => ctx.SortPlaylist(t => t.PlayCount, descending),
-                "album" => () => ctx.SortPlaylist(t => t.Album, descending),
-                "liked" => () => ctx.SortPlaylist(t => t.Liked, descending),
-                "disliked" => () => ctx.SortPlaylist(t => t.Disliked, descending),
-                "rating" => () => ctx.SortPlaylist(t => t.RatingScore, descending),
-                _ => null
-            };
-#nullable enable
-            if (sortAction == null)
-            {
-                ctx.Respond(false, $"Invalid sort field '{cmd.Value}'", null);
+                ctx.Respond(cmd.Command, false, $"Invalid sort field '{cmd.Value}'. Valid fields are: {string.Join(", ", validFields)}", null);
                 return false;
             }
 
-            ctx.Invoke(sortAction);
-            ctx.Respond(true, $"Playlist has been sorted by: {cmd.Value}, Descending: {descending}", null);
+            ctx.Invoke(() => ctx.SortPlaylist(sortField, descending));
+            ctx.Respond(cmd.Command, true, $"Playlist has been sorted by: {cmd.Value}, Descending: {descending}", null);
             return true;
         }
     }

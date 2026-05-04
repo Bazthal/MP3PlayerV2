@@ -1,14 +1,52 @@
 ﻿using BazthalLib;
 using BazthalLib.Controls;
+using static BazthalLib.DebugUtils;
 using LiteDB;
 using MP3PlayerV2.Models;
 using System.Diagnostics;
 
 namespace MP3PlayerV2.Services
 {
+    /// <summary>
+    /// Represents a report detailing the results of a deduplication operation,  including merged and skipped items, as
+    /// well as the total number of deletions.
+    /// </summary>
+    /// <remarks>This class provides a summary of the deduplication process by categorizing  the results into
+    /// merged and skipped pairs. The <see cref="DeletedCount"/>  property reflects the total number of deletions based
+    /// on the merged pairs.</remarks>
+    public class DedupeReport
+    {
+        public List<MergePair> Merged { get; set; } = new();
+        public List<MergePair> Skipped { get; set; } = new();
+        public int DeletedCount => Merged.Count;
+    }
+
+    /// <summary>
+    /// Represents a pair of tracks where one is considered the canonical version, and the other is a duplicate.
+    /// </summary>
+    /// <remarks>This class is typically used in scenarios where duplicate tracks need to be identified and
+    /// resolved. The <see cref="Canonical"/> property holds the primary track, while the <see cref="Duplicate"/>
+    /// property holds the duplicate track that may be merged or removed.</remarks>
+    public class MergePair
+    {
+        public Track Canonical { get; set; } = new();
+        public Track Duplicate { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Represents the progress of a migration operation, including the current step, total steps, and an estimated time
+    /// of arrival (ETA) as text.
+    /// </summary>
+    /// <param name="Current">The current step number of the migration process. Must be a non-negative integer.</param>
+    /// <param name="Total">The total number of steps in the migration process. Must be a positive integer.</param>
+    /// <param name="EtaText">A textual representation of the estimated time remaining for the migration to complete. Can be null or empty if
+    /// no ETA is available.</param>
     public record MigrationProgress(int Current, int Total, string EtaText);
+
     public static class TrackDatabase
     {
+        private static readonly AppSettings _settings = new();
+
         /// <summary>
         /// Represents the file path to the database used for storing play data.
         /// </summary>
@@ -22,11 +60,16 @@ namespace MP3PlayerV2.Services
         /// <param name = "track">The track to be saved or updated. Cannot be null.</param>
         public static void SaveStats(Track track)
         {
-            using var db = new LiteDatabase(DatabasePath);
-            var col = db.GetCollection<Track>("tracks");
-            track.LastUpdated = DateTime.UtcNow; //set the last updated at the time of saving to database
+            try
+            {
+                using var db = new LiteDatabase(DatabasePath);
+                var col = db.GetCollection<Track>("tracks");
+                EnsureIndexes(col);
+                track.LastUpdated = DateTime.UtcNow;
 
-            col.Upsert(track);
+                col.Upsert(track);
+            }
+            catch { }
         }
 
         /// <summary>
@@ -40,22 +83,20 @@ namespace MP3PlayerV2.Services
         /// </remarks>
         public static void LoadStats(Track track)
         {
+            try
             {
-                try
+                using var db = new LiteDatabase(DatabasePath);
+                var col = db.GetCollection<Track>("tracks");
+                var saved = col.FindById(track.Guid);
+                if (saved != null)
                 {
-                    using var db = new LiteDatabase(DatabasePath);
-                    var col = db.GetCollection<Track>("tracks");
-                    var saved = col.FindById(track.Guid);
-                    if (saved != null)
-                    {
-                        ApplyStats(track, saved);
-                        return;
-                    }
+                    ApplyStats(track, saved);
+                    return;
                 }
-                catch (Exception ex)
-                {
-                    DebugUtils.Log("Error", "Load Stats", ex.Message);
-                }
+            }
+            catch (Exception ex)
+            {
+                DebugUtils.Log("Error", "Load Stats", ex.Message, logLevel: DebugUtils.LogLevel.Error);
             }
         }
 
@@ -69,23 +110,27 @@ namespace MP3PlayerV2.Services
         /// <param name="source">The track from which the statistical data will be copied.</param>
         private static void ApplyStats(Track target, Track source)
         {
-            // Counts
-            target.PlayCount = source.PlayCount;
-            target.SkipCount = source.SkipCount;
-            target.PlayCompleteCount = source.PlayCompleteCount;
+            try
+            {
+                // Counts
+                target.PlayCount = source.PlayCount;
+                target.SkipCount = source.SkipCount;
+                target.PlayCompleteCount = source.PlayCompleteCount;
 
-            // Dates
-            target.LastPlayed = source.LastPlayed;
-            target.LastStatReset = source.LastStatReset;
-            target.LastDecayApplied = source.LastDecayApplied;
+                // Dates
+                target.LastPlayed = source.LastPlayed;
+                target.LastStatReset = source.LastStatReset;
+                target.LastDecayApplied = source.LastDecayApplied;
 
-            // Ratings
-            target.RatingScore = source.RatingScore;
-            target.StarRating = source.StarRating;
+                // Ratings
+                target.RatingScore = source.RatingScore;
+                target.StarRating = source.StarRating;
 
-            // Flags
-            target.Liked = source.Liked;
-            target.Disliked = source.Disliked;
+                // Flags
+                target.Liked = source.Liked;
+                target.Disliked = source.Disliked;
+            }
+            catch { }
 
         }
 
@@ -98,9 +143,13 @@ namespace MP3PlayerV2.Services
         /// <returns>The total count of tracks in the database. Returns 0 if no tracks are found.</returns>
         public static int GetTrackCount()
         {
-            using var db = new LiteDatabase(DatabasePath);
-            var col = db.GetCollection<Track>("tracks");
-            return col.Count();
+            try
+            {
+                using var db = new LiteDatabase(DatabasePath);
+                var col = db.GetCollection<Track>("tracks");
+                return col.Count();
+            }
+            catch { return 0; }
         }
 
         /// <summary>
@@ -112,8 +161,47 @@ namespace MP3PlayerV2.Services
         /// found, returns an empty list.</returns>
         public static List<Track> GetAllTracks()
         {
-            using var db = new LiteDatabase(DatabasePath);
-            return db.GetCollection<Track>("tracks").FindAll().ToList();
+            try
+            {
+                using var db = new LiteDatabase(DatabasePath);
+                return db.GetCollection<Track>("tracks").FindAll().ToList();
+            }
+            catch { return []; }
+        }
+
+        /// <summary>
+        /// Loads statistics for multiple tracks in a single database operation.
+        /// </summary>
+        /// <param name="tracks">The collection of tracks to load statistics for.</param>
+        /// <remarks>This method is optimized for bulk loading, retrieving all track stats in a single
+        /// database query rather than individual queries per track. Significantly faster than calling
+        /// <see cref="LoadStats"/> for each track individually.</remarks>
+        public static void LoadStatsBatch(IEnumerable<Track> tracks)
+        {
+            try
+            {
+                var trackList = tracks.ToList();
+                if (trackList.Count == 0) return;
+
+                var guids = trackList.Select(t => t.Guid).ToHashSet();
+
+                using var db = new LiteDatabase(DatabasePath);
+                var col = db.GetCollection<Track>("tracks");
+
+                var savedTracks = col.Find(t => guids.Contains(t.Guid)).ToDictionary(t => t.Guid);
+
+                foreach (var track in trackList)
+                {
+                    if (savedTracks.TryGetValue(track.Guid, out var saved))
+                    {
+                        ApplyStats(track, saved);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                DebugUtils.Log("Track Database", "Load Stats Batch", ex.Message, logLevel: DebugUtils.LogLevel.Error);
+            }
         }
 
         /// <summary>
@@ -135,7 +223,7 @@ namespace MP3PlayerV2.Services
             catch (Exception ex)
             {
                 ThemableMessageBox.Show(ex.Message);
-                DebugUtils.Log("Track Database", "Nuke Database", ex.Message);
+                DebugUtils.Log("Track Database", "Nuke Database", ex.Message, logLevel: DebugUtils.LogLevel.Error);
             }
         }
 
@@ -204,24 +292,52 @@ namespace MP3PlayerV2.Services
         }
 
         /// <summary>
-        /// Preloads track GUIDs from the database and returns a dictionary mapping track identifiers to their GUIDs.
+        /// Preloads a dictionary mapping file paths and hashes to their corresponding track GUIDs.
         /// </summary>
-        /// <remarks>This method retrieves all tracks from the database and filters out any tracks with an
-        /// empty GUID. The dictionary keys are determined by the track's hash if available; otherwise, the file path is
-        /// used.</remarks>
-        /// <returns>A dictionary where the keys are track identifiers (either the hash or file path) and the values are the
-        /// corresponding GUIDs. The dictionary will be empty if no valid tracks are found.</returns>
+        /// <remarks>This method retrieves all tracks from the database and creates a dictionary where
+        /// each track's file path and hash (if available) are mapped to its GUID. Tracks with an empty GUID are
+        /// excluded from the dictionary. The comparison for keys in the dictionary is case-insensitive.</remarks>
+        /// <returns>A dictionary where the keys are file paths and hashes (case-insensitive), and the values are the
+        /// corresponding track GUIDs. The dictionary will be empty if no valid tracks are found.</returns>
         public static Dictionary<string, Guid> PreloadTrackGuids()
         {
-            using var db = new LiteDatabase(DatabasePath);
-            var col = db.GetCollection<Track>("tracks");
+            try
+            {
+                using var db = new LiteDatabase(DatabasePath);
+                var col = db.GetCollection<Track>("tracks");
 
-            return col.FindAll()
-                      .Where(t => t.Guid != Guid.Empty)
-                      .ToDictionary(
-                          t => !string.IsNullOrEmpty(t.Hash) ? t.Hash : t.FilePath,
-                          t => t.Guid
-                      );
+                EnsureIndexes(col);
+
+                var dict = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var t in col.FindAll().Where(t => t.Guid != Guid.Empty))
+                {
+                    if (!string.IsNullOrEmpty(t.Hash))
+                        dict[t.Hash] = t.Guid;
+                    else if (!string.IsNullOrEmpty(t.FilePath))
+                        dict[t.FilePath] = t.Guid;
+                }
+
+                return dict;
+            }
+            catch (Exception ex) {
+                DebugUtils.Log("Track Database", "PreloadTrackGUID", $"Error preloading GUID's: {ex.Message}", logLevel:LogLevel.Error);
+                return new (); }
+        }
+
+        /// <summary>
+        /// Ensures that the database collection has the necessary indexes for optimal query performance.
+        /// </summary>
+        /// <param name="collection">The LiteDB collection to ensure indexes on.</param>
+        private static void EnsureIndexes(ILiteCollection<Track> collection)
+        {
+            try
+            {
+                collection.EnsureIndex(x => x.Guid, unique: true);
+                collection.EnsureIndex(x => x.Hash);
+                collection.EnsureIndex(x => x.FilePath);
+            }
+            catch { }
         }
 
         /// <summary>
@@ -261,9 +377,17 @@ namespace MP3PlayerV2.Services
         ///langword="false"/>.</returns>
         public static bool TrackExists(Guid guid)
         {
-            using var db = new LiteDatabase(DatabasePath);
-            var col = db.GetCollection<Track>("tracks");
-            return col.Exists(t => t.Guid == guid);
+            try
+            {
+                using var db = new LiteDatabase(DatabasePath);
+                var col = db.GetCollection<Track>("tracks");
+                return col.Exists(t => t.Guid == guid);
+            }
+            catch 
+            {
+                return false;           
+            }
+
         }
 
         /// <summary>
@@ -283,9 +407,13 @@ namespace MP3PlayerV2.Services
         /// <param name="track">The <see cref="Track"/> whose statistics should be deleted. Cannot be null.</param>
         public static void DeleteStats(Track track)
         {
-            using var db = new LiteDatabase(DatabasePath);
-            var col = db.GetCollection<Track>("tracks");
-            col.Delete(track.Guid);
+            try
+            {
+                using var db = new LiteDatabase(DatabasePath);
+                var col = db.GetCollection<Track>("tracks");
+                col.Delete(track.Guid);
+            }
+            catch { }
         }
 
         /// <summary>
@@ -306,46 +434,55 @@ namespace MP3PlayerV2.Services
         /// name="tag"/> is <see langword="null"/> or does not match a supported value, no action is taken.</param>
         public static void ResetStats(Track track, string tag)
         {
-            using var db = new LiteDatabase(DatabasePath);
-            var col = db.GetCollection<Track>("tracks");
-            var existing = col.FindById(track.Guid);
-            if (existing == null)
-                return;
-            switch (tag?.ToLowerInvariant())
+            try
             {
-                case "playcount":
-                    existing.PlayCount = 0;
-                    track.PlayCount = 0;
-                    existing.PlayCompleteCount = 0;
-                    track.PlayCompleteCount = 0;
-                    break;
-                case "skipcount":
-                    existing.SkipCount = 0;
-                    track.SkipCount = 0;
-                    break;
-                case "lastplayed":
-                    existing.LastPlayed = null;
-                    track.LastPlayed = null;
-                    break;
-                case "liked":
-                    existing.Liked = false;
-                    track.Liked = false;
-                    break;
-                case "disliked":
-                    existing.Disliked = false;
-                    track.Disliked = false;
-                    break;
-                case "ratingscore":
-                    existing.RatingScore = 0;
-                    track.RatingScore = 0;
-                    existing.StarRating = 0;
-                    track.StarRating = 0;
-                    break;
-            }
+                using var db = new LiteDatabase(DatabasePath);
+                var col = db.GetCollection<Track>("tracks");
+                var existing = col.FindById(track.Guid);
+                var baseScore = track.Liked ? ConfigManager.Settings.TrackRating.ManualLikeBoost : track.Disliked ? ConfigManager.Settings.TrackRating.ManualDislikePenalty : 0;
 
-            existing.LastStatReset = DateTime.UtcNow;
-            track.LastStatReset = existing.LastStatReset;
-            col.Update(existing);
+                if (existing == null)
+                    return;
+                switch (tag?.ToLowerInvariant())
+                {
+                    case "playcount":
+                        existing.PlayCount = 0;
+                        track.PlayCount = 0;
+                        existing.PlayCompleteCount = 0;
+                        track.PlayCompleteCount = 0;
+                        break;
+                    case "skipcount":
+                        existing.SkipCount = 0;
+                        track.SkipCount = 0;
+                        break;
+                    case "lastplayed":
+                        existing.LastPlayed = null;
+                        track.LastPlayed = null;
+                        break;
+                    case "liked":
+                        existing.Liked = false;
+                        track.Liked = false;
+                        break;
+                    case "disliked":
+                        existing.Disliked = false;
+                        track.Disliked = false;
+                        break;
+                    case "ratingscore":
+                        existing.RatingScore = baseScore;
+                        track.RatingScore = baseScore;
+                        existing.StarRating = 0;
+                        track.StarRating = 0;
+                        break;
+                }
+
+                existing.LastStatReset = DateTime.UtcNow;
+                track.LastStatReset = existing.LastStatReset;
+                col.Update(existing);
+            }
+            catch (Exception ex)
+            {
+                DebugUtils.Log("Track Database", "Reset Stats", $"Error With reseting stats: {ex.Message}", logLevel: LogLevel.Error);
+            }
         }
 
         /// <summary>
@@ -552,12 +689,12 @@ namespace MP3PlayerV2.Services
                         }
 
                         col2.Delete(track.Guid);
-                        DebugUtils.Log("Prune", "Database", $"{track} - {track.LastPlayed}");
+                        DebugUtils.Log("Prune", "Database", $"{track} - {track.LastPlayed}", logLevel: DebugUtils.LogLevel.Info);
                         Interlocked.Increment(ref pruned);
                     }
                     catch (Exception ex)
                     {
-                        DebugUtils.Log("Prune", "Database", ex.ToString());
+                        DebugUtils.Log("Prune", "Database", ex.ToString(), logLevel: LogLevel.Error);
                     }
                     finally
                     {
@@ -592,6 +729,197 @@ namespace MP3PlayerV2.Services
             return pruned;
         }
 
+        
+        /// <summary>
+        /// Asynchronously deduplicates tracks in the database by grouping them based on file path and optionally by hash.
+        /// </summary>
+        /// <param name="reportProgress">An optional callback to report progress, receiving the current group index, total group count, and an optional status message.</param>
+        /// <param name="cancellationToken">A <see cref="CancellationToken"/> to observe for cancellation requests during the deduplication process.</param>
+        /// <param name="dryRun">If <c>true</c>, performs a simulation without making any changes to the database; otherwise, applies deduplication changes.</param>
+        /// <param name="includeHashGrouping">If <c>true</c>, performs an additional deduplication pass grouping tracks by their hash values.</param>
+        /// <param name="saveReportToFile">If <c>true</c>, saves the deduplication report as a JSON file in the playdata directory.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result contains a <see cref="DedupeReport"/> summarizing merged and skipped duplicates.</returns>
+        /// <remarks>This method identifies duplicate tracks by grouping them first by file path and, if enabled, by hash.
+        /// For each group with more than one track, it selects a canonical track (most recently updated) and merges statistics from duplicates.
+        /// Duplicates are either deleted or archived based on application settings. The process can be canceled via the provided token.
+        /// A detailed report of merged and skipped pairs is returned and optionally saved to disk.</remarks>
+        public static async Task<DedupeReport> DeduplicateDatabaseAsync(Action<int, int, string?>? reportProgress = null, CancellationToken cancellationToken = default, bool dryRun = false, bool includeHashGrouping = true, bool saveReportToFile = true)
+        {
+            var report = new DedupeReport();
+
+            if (!dryRun)
+                BackUpDatabase();
+
+            await Task.Run(() =>
+            {
+                using var db = new LiteDatabase(DatabasePath);
+                var col = db.GetCollection<Track>("tracks");
+                var deletedCol = _settings.PlayData.ArchiveOverDelete ? db.GetCollection<Track>("tracks_deleted") : null;
+
+                var allTracks = col.FindAll().ToList();
+
+                var groups = allTracks
+                    .Where(t => !string.IsNullOrEmpty(t.FilePath))
+                    .GroupBy(t => t.FilePath, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                int totalGroups = groups.Count;
+                int processedGroups = 0;
+
+                foreach (var group in groups)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    processedGroups++;
+                    reportProgress?.Invoke(processedGroups, totalGroups, null);
+
+                    var tracks = group.ToList();
+                    if (tracks.Count <= 1)
+                        continue;
+
+                    var canonical = tracks
+                        .OrderByDescending(t => t.LastUpdated ?? DateTime.MinValue)
+                        .First();
+
+                    foreach (var duplicate in tracks.Where(t => t.Guid != canonical.Guid))
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                        if (canonical.DurationSeconds == null || duplicate.DurationSeconds == null ||
+                            Math.Abs(canonical.DurationSeconds.Value - duplicate.DurationSeconds.Value) > 2)
+                        {
+                            report.Skipped.Add(new MergePair { Canonical = canonical, Duplicate = duplicate });
+                            continue;
+                        }
+
+                        report.Merged.Add(new MergePair { Canonical = canonical, Duplicate = duplicate });
+
+                        if (!dryRun)
+                        {
+                            MergeTrackData(canonical, duplicate);
+                            if (_settings.PlayData.ArchiveOverDelete)
+                                deletedCol?.Upsert(duplicate);
+                            col.Delete(duplicate.Guid);
+                        }
+                    }
+
+                    if (!dryRun)
+                        col.Update(canonical);
+                }
+
+                if (includeHashGrouping)
+                {
+                    var hashGroups = allTracks
+                        .Where(t => !string.IsNullOrEmpty(t.Hash))
+                        .GroupBy(t => t.Hash, StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+
+                    int totalHashGroups = hashGroups.Count;
+                    int processedHashGroups = 0;
+
+                    foreach (var group in hashGroups)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        processedHashGroups++;
+                        reportProgress?.Invoke(processedHashGroups, totalHashGroups, $"Hash Group {processedHashGroups}/{totalHashGroups}");
+
+                        var tracks = group.ToList();
+                        if (tracks.Count <= 1)
+                            continue;
+
+                        var canonical = tracks
+                            .OrderByDescending(t => t.LastUpdated ?? DateTime.MinValue)
+                            .First();
+
+                        foreach (var duplicate in tracks.Where(t => t.Guid != canonical.Guid))
+                        {
+                            cancellationToken.ThrowIfCancellationRequested();
+
+                            if (canonical.DurationSeconds == null || duplicate.DurationSeconds == null ||
+                                Math.Abs(canonical.DurationSeconds.Value - duplicate.DurationSeconds.Value) > 2)
+                            {
+                                report.Skipped.Add(new MergePair { Canonical = canonical, Duplicate = duplicate });
+                                continue;
+                            }
+
+                            report.Merged.Add(new MergePair { Canonical = canonical, Duplicate = duplicate });
+
+                            if (!dryRun)
+                            {
+                                MergeTrackData(canonical, duplicate);
+                                if (_settings.PlayData.ArchiveOverDelete)
+                                    deletedCol?.Upsert(duplicate);
+                                col.Delete(duplicate.Guid);
+                            }
+                        }
+
+                        if (!dryRun)
+                            col.Update(canonical);
+                    }
+                }
+            }, cancellationToken);
+
+            if (saveReportToFile)
+            {
+                try
+                {
+                    var json = System.Text.Json.JsonSerializer.Serialize(
+                        report,
+                        options: new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+                    var fileName = $"playdata/dedupe_report_{DateTime.Now:yyyyMMdd_HHmmss}.json";
+                    var path = Path.Combine(Application.StartupPath, fileName);
+                    File.WriteAllText(path, json);
+                }
+                catch (Exception ex)
+                {
+                    DebugUtils.Log("Dedupe Save to JSON", "TrackDatabase", $"report: {ex.Message}", logLevel: DebugUtils.LogLevel.Error);
+                }
+            }
+
+            return report;
+        }
+
+        /// <summary>
+        /// Merges the statistical and metadata information from a duplicate track into a canonical track.
+        /// </summary>
+        /// <remarks>This method combines play counts, skip counts, and other statistical data from the
+        /// duplicate track into the canonical track. For date-related fields, the most recent value is retained. For
+        /// ratings, the higher value is preserved. Boolean fields such as <see cref="Track.Liked"/> and <see
+        /// cref="Track.Disliked"/> are combined using a logical OR operation.</remarks>
+        /// <param name="canonical">The canonical <see cref="Track"/> object that will be updated with merged data.</param>
+        /// <param name="duplicate">The duplicate <see cref="Track"/> object whose data will be merged into the canonical track.</param>
+        private static void MergeTrackData(Track canonical, Track duplicate)
+        {
+            canonical.PlayCount = (canonical.PlayCount ?? 0) + (duplicate.PlayCount ?? 0);
+            canonical.SkipCount = (canonical.SkipCount ?? 0) + (duplicate.SkipCount ?? 0);
+            canonical.PlayCompleteCount = (canonical.PlayCompleteCount ?? 0) + (duplicate.PlayCompleteCount ?? 0);
+
+            if (duplicate.LastPlayed.HasValue &&
+                (!canonical.LastPlayed.HasValue || duplicate.LastPlayed > canonical.LastPlayed))
+            {
+                canonical.LastPlayed = duplicate.LastPlayed;
+            }
+
+            if (duplicate.LastStatReset.HasValue &&
+                (!canonical.LastStatReset.HasValue || duplicate.LastStatReset > canonical.LastStatReset))
+            {
+                canonical.LastStatReset = duplicate.LastStatReset;
+            }
+
+            if (duplicate.RatingScore > canonical.RatingScore)
+                canonical.RatingScore = duplicate.RatingScore;
+
+            if (duplicate.StarRating > canonical.StarRating)
+                canonical.StarRating = duplicate.StarRating;
+
+            canonical.Liked = canonical.Liked || duplicate.Liked;
+            canonical.Disliked = canonical.Disliked || duplicate.Disliked;
+
+            if (duplicate.LastDecayApplied.HasValue &&
+                (!canonical.LastDecayApplied.HasValue || duplicate.LastDecayApplied > canonical.LastDecayApplied))
+            {
+                canonical.LastDecayApplied = duplicate.LastDecayApplied;
+            }
+        }
 
     }
 }

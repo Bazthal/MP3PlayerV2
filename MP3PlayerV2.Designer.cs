@@ -70,6 +70,12 @@
             cms_Sort_Rating_Asc = new ToolStripMenuItem();
             cms_Sort_Rating_Desc = new ToolStripMenuItem();
             cms_Shuffle = new ToolStripMenuItem();
+            cms_CreatePlaylist = new ToolStripMenuItem();
+            cms_CreatePlaylist_Unplayed = new ToolStripMenuItem();
+            cms_CreatePlaylist_MostPlayed = new ToolStripMenuItem();
+            cms_CreatePlaylist_Liked = new ToolStripMenuItem();
+            cms_CreatePlaylist_NoDislikes = new ToolStripMenuItem();
+            cms_ShowDuration = new ToolStripMenuItem();
             cms_Clear = new ToolStripMenuItem();
             cms_Load = new ToolStripMenuItem();
             cms_Save = new ToolStripMenuItem();
@@ -245,7 +251,6 @@
             resources.ApplyResources(playListBox, "playListBox");
             playListBox.BorderColor = SystemColors.ActiveBorder;
             playListBox.ContextMenuStrip = cms_Main;
-            playListBox.DrawFocusRectangle = false;
             playListBox.EnableHorizontalScroll = false;
             playListBox.IncludeSpaceInSearchBuffer = false;
             playListBox.ItemHeight = 15;
@@ -263,7 +268,7 @@
             // 
             // cms_Main
             // 
-            cms_Main.Items.AddRange(new ToolStripItem[] { cms_Add, cms_Remove, cms_Sort, cms_Shuffle, cms_Clear, cms_Load, cms_Save, toolStripSeparator5, cms_TrackInformation, cms_RateTrack, cms_Reset, cms_Exit });
+            cms_Main.Items.AddRange(new ToolStripItem[] { cms_Add, cms_Remove, cms_Sort, cms_Shuffle, cms_CreatePlaylist, cms_ShowDuration, cms_Clear, cms_Load, cms_Save, toolStripSeparator5, cms_TrackInformation, cms_RateTrack, cms_Reset, cms_Exit });
             cms_Main.Name = "cms_Main";
             cms_Main.RenderMode = ToolStripRenderMode.System;
             resources.ApplyResources(cms_Main, "cms_Main");
@@ -452,6 +457,46 @@
             cms_Shuffle.Name = "cms_Shuffle";
             resources.ApplyResources(cms_Shuffle, "cms_Shuffle");
             cms_Shuffle.Click += ShuffleButton_Click;
+            // 
+            // cms_CreatePlaylist
+            // 
+            cms_CreatePlaylist.DropDownItems.AddRange(new ToolStripItem[] { cms_CreatePlaylist_Unplayed, cms_CreatePlaylist_MostPlayed, cms_CreatePlaylist_Liked, cms_CreatePlaylist_NoDislikes });
+            cms_CreatePlaylist.Name = "cms_CreatePlaylist";
+            resources.ApplyResources(cms_CreatePlaylist, "cms_CreatePlaylist");
+            // 
+            // cms_CreatePlaylist_Unplayed
+            // 
+            cms_CreatePlaylist_Unplayed.Name = "cms_CreatePlaylist_Unplayed";
+            resources.ApplyResources(cms_CreatePlaylist_Unplayed, "cms_CreatePlaylist_Unplayed");
+            cms_CreatePlaylist_Unplayed.Tag = "UnplayedFirst";
+            cms_CreatePlaylist_Unplayed.Click += GeneratePlaylist_Click;
+            // 
+            // cms_CreatePlaylist_MostPlayed
+            // 
+            cms_CreatePlaylist_MostPlayed.Name = "cms_CreatePlaylist_MostPlayed";
+            resources.ApplyResources(cms_CreatePlaylist_MostPlayed, "cms_CreatePlaylist_MostPlayed");
+            cms_CreatePlaylist_MostPlayed.Tag = "MostPlayed";
+            cms_CreatePlaylist_MostPlayed.Click += GeneratePlaylist_Click;
+            // 
+            // cms_CreatePlaylist_Liked
+            // 
+            cms_CreatePlaylist_Liked.Name = "cms_CreatePlaylist_Liked";
+            resources.ApplyResources(cms_CreatePlaylist_Liked, "cms_CreatePlaylist_Liked");
+            cms_CreatePlaylist_Liked.Tag = "LikedOnly";
+            cms_CreatePlaylist_Liked.Click += GeneratePlaylist_Click;
+            // 
+            // cms_CreatePlaylist_NoDislikes
+            // 
+            cms_CreatePlaylist_NoDislikes.Name = "cms_CreatePlaylist_NoDislikes";
+            resources.ApplyResources(cms_CreatePlaylist_NoDislikes, "cms_CreatePlaylist_NoDislikes");
+            cms_CreatePlaylist_NoDislikes.Tag = "AvoidDisliked";
+            cms_CreatePlaylist_NoDislikes.Click += GeneratePlaylist_Click;
+            // 
+            // cms_ShowDuration
+            // 
+            cms_ShowDuration.Name = "cms_ShowDuration";
+            resources.ApplyResources(cms_ShowDuration, "cms_ShowDuration");
+            cms_ShowDuration.Click += ShowPlaylistDuration_Click;
             // 
             // cms_Clear
             // 
@@ -757,11 +802,13 @@
             ts_Btn_Settings.AccentColor = Color.DodgerBlue;
             ts_Btn_Settings.Alignment = ToolStripItemAlignment.Right;
             ts_Btn_Settings.AllowFocus = true;
+            ts_Btn_Settings.AutoScaleTintedImage = false;
             resources.ApplyResources(ts_Btn_Settings, "ts_Btn_Settings");
             ts_Btn_Settings.BorderColor = Color.Empty;
             ts_Btn_Settings.CornerRadius = 5;
             ts_Btn_Settings.EnableBorder = false;
             ts_Btn_Settings.FocusWrapAroundImage = true;
+            ts_Btn_Settings.ImageScalingQuality = BazthalLib.UI.ImageQuality.Balanced;
             ts_Btn_Settings.MatchImageSize = true;
             ts_Btn_Settings.Name = "ts_Btn_Settings";
             ts_Btn_Settings.RoundCorners = false;
@@ -779,7 +826,7 @@
             AudioDeviceList.BorderColor = SystemColors.ActiveBorder;
             AudioDeviceList.BufferHeight = 5;
             AudioDeviceList.ItemHeight = 12;
-            AudioDeviceList.Margin = new Padding(0, 1, 5, 2);
+            AudioDeviceList.Margin = new Padding(0, 2, 5, 2);
             AudioDeviceList.Name = "AudioDeviceList";
             AudioDeviceList.SelectedItemBackColor = SystemColors.Highlight;
             AudioDeviceList.SelectedItemForeColor = SystemColors.HighlightText;
@@ -889,5 +936,11 @@
         private ToolStripMenuItem cms_Reset_RatingScore_Selected;
         private ToolStripMenuItem cms_Reset_RatingScore_All;
         private ToolStripMenuItem cms_TrackInformation;
+        private ToolStripMenuItem cms_CreatePlaylist;
+        private ToolStripMenuItem cms_CreatePlaylist_Liked;
+        private ToolStripMenuItem cms_CreatePlaylist_NoDislikes;
+        private ToolStripMenuItem cms_CreatePlaylist_Unplayed;
+        private ToolStripMenuItem cms_CreatePlaylist_MostPlayed;
+        private ToolStripMenuItem cms_ShowDuration;
     }
 }

@@ -62,17 +62,21 @@ Seamless remote integration for streaming or automation setups. The built-in **W
 #### Example JSON Payload:
 ```json
 {
-  "NowPlaying": "The Jam - Going Underground",
-  "PlayCount": 1,
-  "LastPlayed": "2025-07-19T21:25:06.8598442Z",
-  "LocalTime": "19/07/2025 22:25"
+  "NowPlaying": "The White Stripes - In the Cold, Cold Night",
+  "PlayCount": 10,
+  "PlaylistIndex": 1359,
+  "LastPlayed": "2026-04-21T07:35:51.0011837Z",
+  "LocalTime": "21/04/2026 08:35",
+  "PlayedPreviously": "13/04/2026 16:12"
 }
 ```
 
 - `NowPlaying`: Current track metadata  
-- `PlayCount`: Number of times the track has been played  
+- `PlayCount`: Number of times the track has been played 
+- `PlaylistIndex`: Index of the track in the current playlist
 - `LastPlayed`: UTC timestamp  
 - `LocalTime`: Display-formatted local time  
+- `PlayedPreviously`: Timestamp of the last time the track was played or "Never" if it hasn't been played before
 
 #### Server Configuration:
 - Set custom **IP**, **Port**, and **Endpoint**

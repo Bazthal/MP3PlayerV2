@@ -1,5 +1,83 @@
 ﻿# MP3PlayerV2 ChangeLog
 
+# 1.3.0 - Architecture Refactoring
+
+## Architecture & Services
+- **Service-Oriented Architecture:** Refactored the monolithic main form into specialized service classes for improved maintainability and testability.
+  - Introduced `ApplicationStateService` as a centralized singleton for managing application-wide state and service access.
+  - Created `CommandContextFactory` to automatically build `CommandContext` instances from the application state, eliminating manual delegate wiring.
+
+- **AudioPlaybackService:** Encapsulates all CSCore audio playback functionality including volume control, playback state management, and event handling.
+  - Provides clean event-driven architecture with `PlaybackStateChanged`, `TrackEnded`, and `PositionChanged` events.
+  - Manages audio device switching, seeking, and resource disposal.
+
+- **TrackNavigationService:** Manages track history, queue, and smart selection algorithms.
+- **PlaylistOperationsService:** Provides playlist manipulation operations with sorting, shuffle, and filtering.
+- **TrackSearchService:** Centralized search and filtering operations with regex-based search and scoring.
+- **TrackFileProcessor:** Dedicated service for processing audio files with parallel processing and progress reporting.
+- **PlaylistFileService:** Handles loading and saving playlists in M3U and JSON formats.
+- **AudioDeviceService:** Manages audio device enumeration and selection.
+
+## Code Quality & Design Principles
+- **Separation of Concerns:** Business logic extracted from UI code into dedicated services.
+- **Single Responsibility Principle:** Each service class has a focused, well-defined purpose.
+- **Improved Testability:** Services can now be tested independently from the UI.
+- **Reduced Coupling:** Services communicate through well-defined interfaces and events.
+- **Enhanced Documentation:** All service classes include comprehensive XML documentation.
+- Optimized parallel file processing with adaptive concurrency limits based on processor count.
+
+## Command System
+- Added `HighlightCommand` to select and highlight tracks in the playlist without starting playback.
+- Added `CommandInfo` record to encapsulate command metadata.
+- Introduced `CommandArgumentParser` for flexible argument handling.
+- Replaced single `LoadHandlers` with split methods to support dynamic DLL loading and unloading.
+- All commands now expose metadata tags for self-documentation.
+- Added `CommandList` command to display all registered commands.
+- Added `AboutCommand` to show detailed metadata for specific or all commands.
+- Renamed `Commands.System` namespace to `Commands.Core` to avoid .NET conflicts.
+- NowPlayingCommand now includes the current track's index in the playlist for better context.
+
+## Playlist & Track Management
+- New playlists generated from play-data categories: `Liked`, `Unplayed`, and `Most Played`.
+- Added context-menu option to show playlist track count and total duration.
+- Added custom `jsonpl` format for fast loading/saving of large playlists.
+  - Default playlist format remains M3U for cross-player compatibility. 
+- When sorting by album, tracks now also sort by artist for consistent grouping.
+- Corrected playlist reordering with Ctrl+Down Arrow using `SetOrder`.
+- Fixed track selection with similar names.
+- Improved track selection during playlist loading.
+
+## Database & Track Data
+- Fixed duplicate database entries caused by metadata changes.
+- Added `DeduplicateDatabaseAsync` and `MergeTrackData` for automatic deduplication.
+- Deduplication can be initiated from the database tab in settings.
+- Added try-catch blocks to prevent "file in use" errors.
+- Rating reset now maintains Like/Dislike scores.
+
+## Audio & Playback
+- Fixed crash from album images with `application/SMFMF` MIME type.
+- Album art selection now chooses the largest available image.
+- `ChangeAudioDevice` now restores the track model after disposal.
+- Extracted TagLib logic into dedicated `CreateTrackFromFile` method.
+- NowPlaying broadcast includes timestamp from previous time the track was played and the current index in the playlist.
+
+## Configuration & Plugins
+- Moved configuration saving and loading to `ConfigManager` for pre-UI access.
+- Added `AudioDevice` class to encapsulate audio device properties.
+- `BazthalLib.DebugMode` and `BazthalLib.LogToFile` are now user-configurable.
+- Custom debug action delegate available for plugin development.
+- Added option for multiple application instances (disabled by default).
+- Added option to disable automatic playback on file association launch.
+
+## User Interface & Experience
+- Added confirmation message to prevent accidental settings reset.
+- Right-click album art to save images with default naming {artist}_{album}.
+- Added toggle for Close confirmation dialog.
+
+## Track Rating & Statistics
+- Added null checks across all methods in `TrackRatingManager`.
+- Updated `Count` and `List` commands to include neutral-rated tracks.
+
 ## 1.2.2
 
 ### UI & Dialog Enhancements

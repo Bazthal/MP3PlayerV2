@@ -34,7 +34,7 @@ namespace MP3PlayerV2.Models
         public DateTime? LastDecayApplied { get; set; }
 
         public int? MigrationVersion { get; set; } = 0;
-        
+
         public override string ToString() => $"{Artist} - {Title}";
 
     }

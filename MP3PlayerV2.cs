@@ -1,13 +1,10 @@
-﻿using BazthalLib;
+using BazthalLib;
 using BazthalLib.Configuration;
 using BazthalLib.Controls;
 using BazthalLib.Systems.IO;
 using BazthalLib.UI;
 using CSCore;
-using CSCore.Codecs;
-using CSCore.CoreAudioAPI;
 using CSCore.SoundOut;
-using CSCore.Streams;
 using MP3PlayerV2.Commands;
 using MP3PlayerV2.Models;
 using MP3PlayerV2.Services;
@@ -15,12 +12,8 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
-using System.Text.Encodings.Web;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
-using WebSocketSharp;
-using WebSocketSharp.Server;
 
 namespace MP3PlayerV2
 {
@@ -29,68 +22,33 @@ namespace MP3PlayerV2
     {
         #region Fields
 
-        /// <summary>
-        /// Specifies the available options for playing a playlist.
-        /// </summary>
-        /// <remarks>The <see cref="PlayListOptions"/> enumeration provides different modes for playing
-        /// tracks in a playlist. These options can be used to control the order and repetition of tracks during
-        /// playback.</remarks>
-        public enum PlayListOptions
-        {
-            Sequential = 0,
-            Repeat_PlayList,
-            Repeat_Track,
-            Random_Track,
-            Smart_Shuffle
-        }
-
-        /// <summary>
-        /// Specifies the modes available for smart shuffle functionality.
-        /// </summary>
-        /// <remarks>Smart shuffle modes determine the order in which items are played based on specific
-        /// criteria. Use this enumeration to configure the behavior of a smart shuffle feature.</remarks>
-        public enum SmartShuffleMode
-        {
-            UnplayedFirst,
-            MostPlayed,
-            LikedOnly,
-            AvoidDisliked,
-            WeightedByRating,
-            UnratedFirst
-        }
-
 #nullable enable
-        private WasapiOut _soundOut;
-        private IWaveSource _waveSource;
-        private VolumeSource _volumeSource;
-
-        private string? _lastEta = null;
-
+        private readonly AudioPlaybackService _audioPlayback = new();
+        private readonly AudioDeviceService _audioDevices = new();
+        private readonly TrackNavigationService _trackNavigation = new();
+        private readonly PlaylistOperationsService _playlistOps = new();
+        private readonly WebSocketService _webSocket = new();
+        private readonly TrackSearchService _trackSearch = new();
 #nullable disable
 
         public static MP3PlayerV2 Instance { get; private set; }
 
-        private readonly ListBox _audioDeviceIDList = new();
+        //private readonly ListBox _audioDeviceIDList = new();
 
         #region Playback Settings
 
         private int _volumeLevel = 100;
-        private static int _maxTrackHistory = 100;
+        //private static int _maxTrackHistory = 100;
 
         #endregion Playback Settings
 
         #region Playback Utilities
 
-
-        private bool _disposed = true;
-        private bool _userStopped = false;
         private bool _trackEnd = false;
         private static string _currentTrackFilePath;
         private static Track _currentTrackModel = null;
         private static readonly Random _rng = new();
         private readonly PlaylistManager _playlistManager = new();
-        private readonly BazthalLib.Systems.LimitedStack<Track> _trackHistory = new(_maxTrackHistory);
-        private readonly Queue<string> _trackQueue = new();
         internal static int _updateStep = 1;
         private bool _userSeeked = false;
 
@@ -105,22 +63,8 @@ namespace MP3PlayerV2
 
         #endregion Track Rating Settings
 
-        #region WebSocket Settings
-
-        private string _webSocketAddress = "127.0.0.1";
-        private int _webSocketPort = 8080;
-        private string _webSocketEndPoint = "/";
-        private bool _autoStart = false;
-
-        #endregion WebSocket Settings
-
         #region WebSocket Utilities
 
-        private static string _commandResponse = string.Empty;
-        private WebSocketServer _server;
-        private Thread _serverThread;
-        private bool _running = false;
-        public bool GetWssStatus { get => _running; }
         private readonly CommandDispatcher _dispatcher = new();
         private bool _includeData = false;
 
@@ -128,17 +72,13 @@ namespace MP3PlayerV2
 
         #region Configuration
 
-        private static readonly int _lastConfigVersion = 0;
-        private static readonly int _newConfigVersion = 1;
-        private static readonly JsonSerializerOptions _jsonOption = new() { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
         private static readonly JsonSerializerOptions _caseInsensitiveOptions = new() { PropertyNameCaseInsensitive = true };
-        internal AppSettings _settings;
-        private JSON<AppSettings> _jsonConfig;
+        internal AppSettings _settings = ConfigManager.Settings;
         private readonly string _customThemeConfig = Path.Combine(Application.StartupPath, "Config/CustomTheme.json");
-        private readonly string _settingsConfig = Path.Combine(Application.StartupPath, "Config/Settings.json");
 
+        private static string _defaultPlaylistExtentionFilter = "M3U Playlists|*.m3u;*.m3u8|jsonPlaylist|*.jsonpl|All Supported|*.m3u;*.m3u8;*.jsonpl";
         private static readonly HashSet<string> SupportedAudioExtensions = new(StringComparer.OrdinalIgnoreCase) { ".flac", ".m4a", ".mp2", ".mp3", ".wav", ".wma" };
-        private static readonly HashSet<string> SupportedPlaylistExtensions = new(StringComparer.OrdinalIgnoreCase) { ".m3u", ".m3u8" };
+        private static readonly HashSet<string> SupportedPlaylistExtensions = new(StringComparer.OrdinalIgnoreCase) { ".m3u", ".m3u8", ".jsonpl" };
 
         #endregion Configuration
 
@@ -158,9 +98,41 @@ namespace MP3PlayerV2
             Instance = this;
             InitializeComponent();
             Theming.RegisterForm(this);
-            GetAudioDevices();
+
+            // Initialize ApplicationStateService with all services and state
+            var appState = ApplicationStateService.Instance;
+            appState.AudioPlayback = _audioPlayback;
+            appState.AudioDevices = _audioDevices;
+            appState.TrackNavigation = _trackNavigation;
+            appState.PlaylistOperations = _playlistOps;
+            appState.WebSocket = _webSocket;
+            appState.TrackSearch = _trackSearch;
+            appState.PlaylistManager = _playlistManager;
+            appState.Settings = _settings;
+
+            // Set up UI callbacks
+            appState.InvokeOnUI = action => this.Invoke(action);
+            appState.GetSelectedAudioDeviceIndex = () => AudioDeviceList.SelectedIndex;
+            appState.SetSelectedAudioDeviceIndex = i => AudioDeviceList.SelectedIndex = i;
+            appState.GetSelectedPlaylistOptionIndex = () => playList_Options.SelectedIndex;
+            appState.SetSelectedPlaylistOptionIndex = i => playList_Options.SelectedIndex = i;
+            appState.GetSelectedTrackIndex = () => playListBox.SelectedIndex;
+            appState.SetSelectedTrackIndex = i => playListBox.SelectedIndex = i;
+            appState.SetCurrentTrackLabel = text => Cur_Track_Label.Text = text;
+            appState.SetFormTitle = text => this.Text = text;
+            appState.SetTrackingSliderMaximum = max => Tracking_Slider.Maximum = max;
+            appState.SetTrackingSliderValue = val => Tracking_Slider.Value = val;
+            appState.GetTrackingSliderValue = () => Tracking_Slider.Value;
+            appState.SetVolumeSliderValue = val => Volume_Slider.Value = val;
+            appState.EnsureTrackVisible = index => playListBox.EnsureVisible(index);
+            appState.GetPlaylistCount = () => playListBox.Items.Count;
+
+            // Initialize audio devices
+            _audioDevices.EnumerateDevices();
+            PopulateAudioDeviceList();
+
             playList_Options.Items.Clear();
-            foreach (PlayListOptions option in Enum.GetValues(typeof(PlayListOptions)))
+            foreach (PlaylistOption option in Enum.GetValues(typeof(PlaylistOption)))
             {
                 playList_Options.Items.Add(option.ToString().Replace("_", " "));
             }
@@ -168,6 +140,13 @@ namespace MP3PlayerV2
             //These should be last thing to process Before doing anything that uses it
             LoadThemeFromJson();
             LoadSettings();
+
+            // Wire up audio playback events
+            _audioPlayback.PlaybackStateChanged += OnPlaybackStateChanged;
+            _audioPlayback.TrackEnded += OnTrackEnded;
+
+            // Wire up audio device events
+            _audioDevices.DevicesChanged += OnAudioDevicesChanged;
 
             _playlistManager.PlaylistChanged += () =>
             {
@@ -181,124 +160,51 @@ namespace MP3PlayerV2
                     playListBox.SelectedIndex = -1;
             };
 
-            if (_autoStart)
+            if (_settings.WebSocket.AutoStart)
             {
-                StartServerThread();
+                StartWebSocketServer();
             }
 
             if (args != null && args.Length != 0)
             {
-                HandleDroppedFiles(args, true);
+                bool autoPlay = _settings.Application.AutoPlayOnFileAssocLaunch;
+                HandleDroppedFiles(args, autoPlay);
             }
         }
 
         #endregion Contructor
 
-        #region Private Methods
+        #region Methods
 
         #region Core Playback Logic
 
+#nullable enable
         /// <summary>
-        /// Releases all resources used by the CSCore playback components.
+        /// Handles playback state changes from the audio service.
         /// </summary>
-        /// <remarks>This method stops and disposes of the sound output and wave source components, 
-        /// ensuring that all associated resources are properly released. After calling this method,  the playback
-        /// components cannot be used again unless they are reinitialized.</remarks>
-        private void DisposeCSCore()
+        private void OnPlaybackStateChanged(object? sender, PlaybackStateChangedEventArgs e)
         {
-            if (_soundOut != null)
-            {
-                _soundOut.Stopped -= OnSoundOutStopped;
-                _soundOut.Stop();
-                _soundOut.Dispose();
-                _soundOut = null;
-            }
-
-            _waveSource?.Dispose();
-            _waveSource = null;
-
-            _disposed = true;
+            UpdatePlaybackState(e.NewState);
         }
 
         /// <summary>
-        /// Initializes the CSCore audio playback system with the specified audio file and optional device ID.
+        /// Handles track ended events from the audio service.
         /// </summary>
-        /// <remarks>This method prepares the audio playback by setting up the necessary audio sources and
-        /// output devices. It disposes of any previous audio resources before initializing new ones. If the specified
-        /// file does not exist, the method logs an error and returns without initializing the playback
-        /// system.</remarks>
-        /// <param name="filePath">The path to the audio file to be played. The file must exist at the specified path.</param>
-        /// <param name="deviceID">The optional ID of the audio output device. If not specified, the default audio device is used.</param>
-        private bool InitializeCSCore(string filePath, string deviceID = "")
+        private void OnTrackEnded(object? sender, TrackEndedEventArgs e)
         {
-            DisposeCSCore(); // Clean up before reinitializing
-
-            _disposed = false;
-            _trackEnd = false;
-            _userStopped = false;
-
-            DebugUtils.Log("Initialize CSCore", Name, $"File Path: {filePath}");
-
-            if (System.IO.File.Exists(filePath))
+            if (e.ReachedEnd)
             {
-                var sampleSource = CodecFactory.Instance.GetCodec(filePath)
-                    .ToSampleSource();
-
-                _volumeSource = new VolumeSource(sampleSource);
-
-                _waveSource = _volumeSource.ToWaveSource(16);
+                _trackEnd = true;
+                DebugUtils.Log("AudioPlaybackService", "TrackEnded", 
+                    $"Track reached end naturally", logLevel: DebugUtils.LogLevel.Info);
             }
             else
             {
-                DebugUtils.Log("Initialize CSCore", Name, "File not found.");
-                return false;
-            }
-
-            _soundOut = (string.IsNullOrEmpty(deviceID))
-                ? new WasapiOut()
-                : new WasapiOut { Device = new MMDeviceEnumerator().GetDevice(deviceID) };
-
-            DebugUtils.Log("Initialize CSCore", Name, $"Device ID: {deviceID}");
-            _soundOut.Initialize(_waveSource);
-            SetVolume(_volumeLevel);
-            _soundOut.Stopped += OnSoundOutStopped;
-            return true;
-        }
-
-        /// <summary>
-        /// Handles the event when sound playback is stopped.
-        /// </summary>
-        /// <remarks>This method determines whether the playback stopped due to reaching the end of the
-        /// track or by user intervention. It updates internal state flags accordingly.</remarks>
-        /// <param name="sender">The source of the event, typically the sound output device.</param>
-        /// <param name="e">The event data containing information about the playback stop event.</param>
-        private void OnSoundOutStopped(object sender, PlaybackStoppedEventArgs e)
-        {
-            if (_disposed || _soundOut == null || _waveSource == null)
-                return;
-            long buffer = (long)(_waveSource?.WaveFormat.SampleRate * 0.07);
-
-            try
-            {
-                DebugUtils.Log("Sound Out Stopped", sender.ToString(), $"Pos: {_waveSource.Position + buffer} - Length: {_waveSource.Length}");
-
-                if ((_soundOut.PlaybackState == PlaybackState.Stopped &&
-                    _waveSource.Position + buffer >= _waveSource.Length))
-                {
-                    _trackEnd = true;
-                    _userStopped = false;
-                }
-                else
-                {
-                    _userStopped = true;
-                }
-            }
-            catch (ObjectDisposedException)
-            {
-                DebugUtils.Log("Sound Stopped", sender.ToString(), e.Exception.Message);
+                DebugUtils.Log("AudioPlaybackService", "TrackEnded", 
+                    $"Track stopped by user", logLevel: DebugUtils.LogLevel.Info);
             }
         }
-
+#nullable disable
         /// <summary>
         /// Starts the playback timer, resetting it if it is already running.
         /// </summary>
@@ -339,96 +245,117 @@ namespace MP3PlayerV2
         /// current track is stopped before playing the new one. If playback is paused, it resumes from the paused
         /// position. The method updates the UI with the current track information and broadcasts the now playing
         /// information via WebSocket if the server is running. Playback statistics are saved to the database.</remarks>
-        private void Play()
+        private void Play(Track playitem = null)
         {
-            // Check to see it's null first before trying see if it's playing or paused
-            if (_soundOut != null)
-            {
-                //Check to see if it's currently active playing audio
-                if (_soundOut?.PlaybackState == PlaybackState.Playing)
-                {
-                    //Check to see if the currently played track is the same as the selected track in the play list
-                    if (string.IsNullOrWhiteSpace(Cur_Track_Label.Text) || !Cur_Track_Label.Text.Contains(playListBox.SelectedItem.ToString()))
-                    {
-                        ;
-                        //Stop Then process the new track
-                        Stop();
-                        DebugUtils.Log("No Track Match", "Play", $"Match Not Found: {Cur_Track_Label.Text} is not {playListBox.SelectedItem.ToString()}");
-                    }
-                    else
-                    {
-                        DebugUtils.Log("Track Match", "Play", $"Match Found: {Cur_Track_Label.Text}");
-                        //if it's the same do nothing and exit here
-                        return;
-                    }
-                }
+            var appState = ApplicationStateService.Instance;
 
-                //Check to see if there something paused and resume this
-                if (_soundOut?.PlaybackState == PlaybackState.Paused)
+            if (_audioPlayback.State == PlaybackState.Paused)
+            {
+                _audioPlayback.Play();
+                var currentTrackText = appState.SetCurrentTrackLabel != null ? 
+                    string.Empty : Cur_Track_Label.Text;
+                appState.SetFormTitle?.Invoke($"MP3 Player - {currentTrackText}");
+                DebugUtils.Log("Play", "Pause-Resumed", $"{currentTrackText}", logLevel: DebugUtils.LogLevel.Info);
+                return;
+            }
+
+            if (_audioPlayback.State == PlaybackState.Playing)
+            {
+                var currentTrackText = appState.SetCurrentTrackLabel != null ? 
+                    string.Empty : Cur_Track_Label.Text;
+                var selectedTrackIndex = appState.GetSelectedTrackIndex?.Invoke() ?? -1;
+                var selectedItem = selectedTrackIndex >= 0 ? playListBox.SelectedItem : null;
+
+                if (string.IsNullOrWhiteSpace(currentTrackText) || 
+                    (selectedItem != null && !currentTrackText.Contains(selectedItem.ToString())))
                 {
-                    _soundOut?.Resume();
-                    UpdatePlaybackState(_soundOut.PlaybackState);
-                    this.Text = $"MP3 Player - {Cur_Track_Label.Text}";
-                    DebugUtils.Log("Play", "Pause-Resumed", $"{Cur_Track_Label.Text}");
+                    Stop();
+                    DebugUtils.Log("No Track Match", "Play", 
+                        $"Match Not Found: {currentTrackText} is not {selectedItem?.ToString()}", 
+                        logLevel: DebugUtils.LogLevel.Info);
+                }
+                else
+                {
+                    DebugUtils.Log("Track Match", "Play", $"Match Found: {currentTrackText}", 
+                        logLevel: DebugUtils.LogLevel.Info);
                     return;
                 }
             }
 
+            var playlistCount = appState.GetPlaylistCount?.Invoke() ?? 0;
+            var selectedIndex = appState.GetSelectedTrackIndex?.Invoke() ?? -1;
+
+            if (playlistCount <= 0 || selectedIndex == -1)
+                return;
+
             var deviceID = "";
-
-            if (playListBox.Items.Count > 0 && playListBox.SelectedIndex != -1)
+            var audioDeviceIndex = appState.GetSelectedAudioDeviceIndex?.Invoke() ?? -1;
+            if (audioDeviceIndex >= 0)
             {
-
-                if (AudioDeviceList.SelectedIndex != -1)
-                {
-                    _audioDeviceIDList.SelectedIndex = AudioDeviceList.SelectedIndex;
-                    deviceID = _audioDeviceIDList.SelectedItem.ToString();
-                }
-                Track track = _playlistManager.GetByText(playListBox.SelectedItem.ToString());
-                if (track == null) return;
-
-                _currentTrackFilePath = track.FilePath;
-                _currentTrackModel = track;
-                if (InitializeCSCore(_currentTrackFilePath, deviceID))
-                {
-                    Cur_Track_Label.Text = track.ToString();
-
-                    this.Text = $"MP3 Player - {Cur_Track_Label.Text}";
-
-                    //Configure Trackbar to Music File
-                    Tracking_Slider.Maximum = (int)_waveSource?.GetLength().TotalSeconds;
-                    Tracking_Slider.Value = 0;
-
-                    _soundOut?.Play();
-                    UpdatePlaybackState(_soundOut.PlaybackState);
-
-                    TrackRatingManager.ApplyPlayStart(track, _settings.TrackRating);
-                    //track.PlayCount++;
-                    track.LastPlayed = DateTime.UtcNow;
-                    var dispTime = $"{track.LastPlayed?.ToLocalTime().ToShortDateString()}-{track.LastPlayed?.ToLocalTime().ToShortTimeString()}";
-
-                    //Save stats to database
-                    try
-                    {
-                        TrackDatabase.SaveStats(track);
-                    }
-                    catch (Exception ex) { DebugUtils.Log("Play", "Save Stats", $"Saving to data base error: {ex.Message}"); }
-
-                    DebugUtils.Log("Play", Text, $"Current Track: {_currentTrackFilePath}");
-                    DebugUtils.Log("Tracking", "Play", $"{_waveSource?.GetLength()}");
-
-                    if (!_running) { DebugUtils.Log("Play", "WebSocket", "Websocket isn't running no broadcast sent"); return; }
-                    var nowPlayingInfo = new { NowPlaying = track.ToString(), track.PlayCount, track.LastPlayed, LocalTime = dispTime };
-                    string jsonMessage = JsonSerializer.Serialize(nowPlayingInfo, _jsonOption);
-                    _server?.WebSocketServices["/nowplaying"].Sessions.Broadcast(jsonMessage);
-                }
-                else
-                {
-                    string message = $"Could Not find the file to play:\n{_currentTrackFilePath}";
-                    //Send a message to the user stating the file could not be found and auto-closes the message box after 10 seconds
-                    ThemableMessageBox.Show(message, "Unable to Play!", MessageBoxButtons.OK, 10000, MessageBoxIcon.Information);
-                }
+                var device = _audioDevices.GetDevice(audioDeviceIndex);
+                deviceID = device?.DeviceID ?? "";
             }
+
+            var track = playitem ?? (Track)playListBox.SelectedItem;
+            if (track == null) return;
+
+            _currentTrackFilePath = track.FilePath;
+            _currentTrackModel = track;
+
+            appState.CurrentTrackFilePath = _currentTrackFilePath;
+            appState.CurrentTrack = _currentTrackModel;
+
+            if (!_audioPlayback.Initialize(_currentTrackFilePath, deviceID))
+            {
+                string message = $"Could Not find the file to play:\n{_currentTrackFilePath}";
+                ThemableMessageBox.Show(message, "Unable to Play!", MessageBoxButtons.OK, 10000, MessageBoxIcon.Information);
+                return;
+            }
+
+            _trackEnd = false;
+            _audioPlayback.VolumeLevel = _volumeLevel;
+
+            var trackText = track.ToString();
+            appState.SetCurrentTrackLabel?.Invoke(trackText);
+            appState.SetFormTitle?.Invoke($"MP3 Player - {trackText}");
+
+            appState.SetTrackingSliderMaximum?.Invoke((int)_audioPlayback.Duration.TotalSeconds);
+            appState.SetTrackingSliderValue?.Invoke(0);
+
+            _audioPlayback.Play();
+
+            TrackRatingManager.ApplyPlayStart(track, _settings.TrackRating);
+            var previouslyPlayed = track.LastPlayed.HasValue ? track.LastPlayed.Value.ToLocalTime().ToString("g") : "Never";
+            track.LastPlayed = DateTime.UtcNow;
+            var dispTime = track.LastPlayed?.ToLocalTime().ToString("g");
+            // var dispTime = $"{track.LastPlayed?.ToLocalTime().ToShortDateString()}-{track.LastPlayed?.ToLocalTime().ToShortTimeString()}";
+
+
+            try
+            {
+                TrackDatabase.SaveStats(track);
+            }
+            catch (Exception ex) 
+            { 
+                DebugUtils.Log("Play", "Save Stats", $"Saving to data base error: {ex.Message}", 
+                    logLevel: DebugUtils.LogLevel.Error); 
+            }
+
+            DebugUtils.Log("Play", appState.SetFormTitle != null ? "Title Set" : Text, 
+                $"Current Track: {_currentTrackFilePath}", 
+                logLevel: DebugUtils.LogLevel.Info);
+            DebugUtils.Log("Tracking", "Play", $"{_audioPlayback.Duration}", 
+                logLevel: DebugUtils.LogLevel.Info);
+
+            if (!_webSocket.IsRunning) 
+            { 
+                DebugUtils.Log("Play", "WebSocket", "Websocket isn't running no broadcast sent", 
+                    logLevel: DebugUtils.LogLevel.Info); 
+                return; 
+            }
+
+            var nowPlayingInfo = new { NowPlaying = track.ToString(), track.PlayCount, PlaylistIndex = _playlistManager.IndexOf(track), track.LastPlayed, LocalTime = dispTime, PlayedPreviously = previouslyPlayed };
+            _webSocket.BroadcastNowPlaying(nowPlayingInfo);
         }
 
         /// <summary>
@@ -439,22 +366,21 @@ namespace MP3PlayerV2
         /// the UI to reflect the paused state.</remarks>
         private void Pause()
         {
-            if (_soundOut == null)
-                return;
+            var appState = ApplicationStateService.Instance;
+            var currentTrackText = appState.SetCurrentTrackLabel != null ?
+                Cur_Track_Label.Text : string.Empty ;
 
-            if (_soundOut?.PlaybackState == PlaybackState.Paused)
+            if (_audioPlayback.State == PlaybackState.Paused)
             {
-                _soundOut?.Resume();
-                this.Text = $"MP3 Player - {Cur_Track_Label.Text}";
-                UpdatePlaybackState(_soundOut.PlaybackState);
+                _audioPlayback.Play();
+                appState.SetFormTitle?.Invoke($"MP3 Player - {currentTrackText}");
                 return;
             }
 
-            if (_soundOut?.PlaybackState == PlaybackState.Playing)
+            if (_audioPlayback.State == PlaybackState.Playing)
             {
-                _soundOut?.Pause();
-                this.Text = $"MP3 Player - {Cur_Track_Label.Text} - Paused";
-                UpdatePlaybackState(_soundOut.PlaybackState);
+                _audioPlayback.Pause();
+                appState.SetFormTitle?.Invoke($"MP3 Player - {currentTrackText} - Paused");
                 return;
             }
         }
@@ -467,11 +393,10 @@ namespace MP3PlayerV2
         /// stopped.</remarks>
         private void Stop()
         {
-            //Don't try if already cleared
-            if (_disposed) return;
-            this.Text = "MP3 Player";
-            _soundOut?.Stop();
-            _userStopped = true;
+            if (_audioPlayback.IsDisposed) return;
+
+            ApplicationStateService.Instance.SetFormTitle?.Invoke("MP3 Player");
+            _audioPlayback.Stop();
             PlayTimer?.Stop();
         }
 
@@ -487,127 +412,64 @@ namespace MP3PlayerV2
         {
             if (_playlistManager.Count <= 0)
             {
-                DebugUtils.Log("Next", "No Tracks", "No tracks in the playlist to play.");
+                DebugUtils.Log("Next", "No Tracks", "No tracks in the playlist to play.", logLevel: DebugUtils.LogLevel.Info);
                 return;
             }
 
             if (!automatic)
             {
-                if (_currentTrackModel != null && _waveSource != null)
+                if (_currentTrackModel != null && !_audioPlayback.IsDisposed)
                 {
-                    TimeSpan pos = _waveSource.GetPosition();
-                    TimeSpan len = _waveSource.GetLength();
+                    TimeSpan pos = _audioPlayback.Position;
+                    TimeSpan len = _audioPlayback.Duration;
 
                     if (IsSkipValid(pos, len))
                     {
                         TrackRatingManager.ApplySkip(_currentTrackModel, _settings.TrackRating, pos.Seconds);
-                        //track.SkipCount++;
                         try { TrackDatabase.SaveStats(_currentTrackModel); }
-                        catch (Exception ex) { DebugUtils.Log("Next", "Save Stats", $"Error: {ex.Message}"); }
+                        catch (Exception ex) { DebugUtils.Log("Next", "Save Stats", $"Error: {ex.Message}", logLevel: DebugUtils.LogLevel.Error); }
                     }
                 }
             }
 
-
-            if (_currentTrackModel !=  null) 
-            {
-                _trackHistory.Push(_currentTrackModel);
-            }
-
-            bool endOfPlaylist = false;
-
-            // Remote control override
-            while (_trackQueue.Count > 0)
-            {
-                string queuedTrack = _trackQueue.Peek();
-                int index = -1;
-
-                // Search for a matching track in the playlist
-                for (int i = 0; i < _playlistManager.Count; i++)
-                {
-                    var track = _playlistManager.Get(i);
-                    if (track != null && track.ToString() == queuedTrack)
-                    {
-                        index = i;
-                        break;
-                    }
-                }
-
-                if (index != -1)
-                {
-                    _trackQueue.Dequeue();
-                    playListBox.SelectedIndex = index;
-                    Play();
-                    return;
-                }
-                else
-                {
-                    // No match found, remove this stale entry and check the next one
-                    _trackQueue.Dequeue();
-                }
-            }
-
-            PlayListOptions option = PlayListOptions.Sequential; // Default fallback
-
+            PlaylistOption option = PlaylistOption.Sequential;
             if (playList_Options.SelectedIndex != -1)
             {
                 string selectedText = playList_Options.SelectedItem.ToString().Replace(" ", "_");
                 _ = Enum.TryParse(selectedText, out option);
             }
-            switch (option)
+
+            var (nextTrack, nextIndex) = _trackNavigation.GetNextTrack(
+                _currentTrackModel,
+                playListBox.SelectedIndex,
+                _playlistManager.Count,
+                option,
+                _smartShuffleMode,
+                i => _playlistManager.Get(i),
+                () => _playlistManager.Tracks
+            );
+
+            if (nextTrack == null && nextIndex == -1)
             {
-                case PlayListOptions.Repeat_PlayList:
-                    {
-                        if (playListBox.SelectedIndex != playListBox.Items.Count - 1)
-                            playListBox.SelectedIndex++;
-                        else
-                            playListBox.SelectedIndex = 0;
-                        break;
-                    }
-                case PlayListOptions.Repeat_Track:
-                    {
-                        TrackRatingManager.ApplyReplay(_currentTrackModel, _settings.TrackRating);
-                        //Don't do anything else here as stopping and starting playback again will restart the track
-                        break;
-                    }
-                case PlayListOptions.Random_Track: { GetRandomTrack(); break; }
-                case PlayListOptions.Smart_Shuffle:
-                    {
-                        var track = PickSmartTrack(_playlistManager.Tracks);
-                        if (track == null) return;
-
-                        int index = _playlistManager.IndexOf(track);
-                        if (index < 0) return;
-
-                        playListBox.SelectedIndex = index;
-                        break;
-                    }
-                default:
-                    {
-
-                        if (playListBox.SelectedIndex == playListBox.Items.Count - 1)
-                        {
-                            ResetUIText();
-                            playListBox.SelectedIndex = -1;
-                            Tracking_Slider.Value = 0;
-                            endOfPlaylist = true;
-
-                            if (_soundOut == null)
-                                return;
-
-                            _soundOut?.Stop();
-                            UpdatePlaybackState(_soundOut.PlaybackState);
-                            DisposeCSCore();
-                        }
-                        else playListBox.SelectedIndex++;
-                        break;
-                    }
+                ResetUI();
+                var appState = ApplicationStateService.Instance;
+                appState.SetSelectedTrackIndex?.Invoke(-1);
+                appState.SetTrackingSliderValue?.Invoke(0);
+                _audioPlayback.Stop();
+                _audioPlayback.Dispose();
+                return;
             }
 
-            if (!endOfPlaylist)
+            if (option == PlaylistOption.RepeatTrack)
             {
-                _soundOut?.Stop();
-                Play();
+                TrackRatingManager.ApplyReplay(_currentTrackModel, _settings.TrackRating);
+            }
+
+            if (nextTrack != null)
+            {
+                _audioPlayback.Stop();
+                playListBox.SelectedIndex = nextIndex;
+                Play(nextTrack);
             }
         }
 
@@ -622,62 +484,32 @@ namespace MP3PlayerV2
         {
             if (_playlistManager.Count <= 0)
             {
-                DebugUtils.Log("Previous", "No Tracks", "No tracks in the playlist to play.");
+                DebugUtils.Log("Previous", "No Tracks", "No tracks in the playlist to play.", logLevel: DebugUtils.LogLevel.Info);
                 return;
             }
 
-            if (_waveSource != null && _waveSource.GetPosition().TotalSeconds > 5)
+            double currentPosition = _audioPlayback.IsDisposed ? 0 : _audioPlayback.Position.TotalSeconds;
+
+            var (previousTrack, previousIndex, shouldRestart) = _trackNavigation.GetPreviousTrack(
+                currentPosition,
+                playListBox.SelectedIndex,
+                _playlistManager.Count,
+                i => _playlistManager.Get(i),
+                restartThreshold: 5.0
+            );
+
+            if (shouldRestart)
             {
-                _waveSource.SetPosition(TimeSpan.Zero);
+                _audioPlayback.SeekTo(0);
                 return;
             }
 
-            while (_trackHistory.Count > 0)
+            if (previousTrack != null && previousIndex >= 0)
             {
-                //var prev = _trackHistory.Peek();
-                var prev = _trackHistory.Peek();
-                int index = -1;
-
-                // Search for a matching track in the playlist
-                for (int i = 0; i < _playlistManager.Count; i++)
-                {
-                    var track = _playlistManager.Get(i);
-                    //if (track != null && track.ToString() == prev)
-                    if (track != null && track == prev)
-                    {
-                        index = i;
-                        break;
-                    }
-                }
-
-                if (index != -1)
-                {
-                    _trackHistory.Pop();
-
-                    playListBox.SelectedIndex = index;
-                    Play();
-                    return;
-                }
-                else
-                {
-                    DebugUtils.Log("Previous Track", "Not Found", "Last Played was not found in the playlist");
-                    // No match found, remove this stale entry and check the next one
-                    _trackHistory.Pop();
-                }
+                _audioPlayback.Stop();
+                playListBox.SelectedIndex = previousIndex;
+                Play();
             }
-
-            if (playListBox.SelectedIndex > 0)
-            {
-                playListBox.SelectedIndex--;
-            }
-            else
-            {
-                return;
-            }
-
-            _soundOut?.Stop();
-            Play();
-
         }
 
         /// <summary>
@@ -688,11 +520,9 @@ namespace MP3PlayerV2
         private void SetVolume(int vol)
         {
             _volumeLevel = vol;
-            if (_volumeSource != null)
-                _volumeSource.Volume = Math.Clamp(vol / 100f, 0.0f, 1.0f); // 0 = mute, 1 = full
-                                                                           //Set Volume slider value to match current volume level 
-            Volume_Slider.Value = (int)_volumeLevel;
-
+            _audioPlayback.VolumeLevel = vol;
+            ApplicationStateService.Instance.SetVolumeSliderValue?.Invoke(_volumeLevel);
+            ApplicationStateService.Instance.VolumeLevel = vol;
         }
 
         /// <summary>
@@ -704,25 +534,22 @@ namespace MP3PlayerV2
         /// <param name="seconds">The time position, in seconds, to seek to. Must be non-negative.</param>
         public void SeekTo(double seconds)
         {
-            if (_waveSource != null && _waveSource.CanSeek)
+            if (!_audioPlayback.CanSeek) return;
+
+            _audioPlayback.SeekTo(seconds);
+
+            double tolerance = 0.5;
+            double currentSeconds = _audioPlayback.Position.TotalSeconds;
+            double totalSeconds = _audioPlayback.Duration.TotalSeconds;
+
+            if (currentSeconds <= tolerance)
             {
-                long bytePosition = (long)(seconds * _waveSource.WaveFormat.BytesPerSecond);
-                bytePosition = Math.Min(bytePosition, _waveSource.Length);
-                _waveSource.Position = bytePosition;
-
-                double tolerance = 0.5;
-                double currentSeconds = _waveSource.GetPosition().TotalSeconds;
-                double totalSeconds = _waveSource.GetLength().TotalSeconds;
-
-                if (currentSeconds <= tolerance)
-                {
-                    TrackRatingManager.ApplyReplay(_currentTrackModel, _settings.TrackRating);
-                }
-                else if (totalSeconds - currentSeconds <= tolerance)
-                {
-                    _userSeeked = true;
-                    TrackRatingManager.ApplySeekToEnd(_currentTrackModel, _settings.TrackRating);
-                }
+                TrackRatingManager.ApplyReplay(_currentTrackModel, _settings.TrackRating);
+            }
+            else if (totalSeconds - currentSeconds <= tolerance)
+            {
+                _userSeeked = true;
+                TrackRatingManager.ApplySeekToEnd(_currentTrackModel, _settings.TrackRating);
             }
         }
 
@@ -734,17 +561,14 @@ namespace MP3PlayerV2
         /// calling this method.</remarks>
         private void UpdateTrackbar()
         {
-            if (_waveSource != null)
-            {
-                var currentSeconds = _waveSource.Position / (double)_waveSource.WaveFormat.BytesPerSecond;
-                Tracking_Slider.Value = (int)currentSeconds;
-            }
+            ApplicationStateService.Instance.SetTrackingSliderValue?.Invoke((int)_audioPlayback.Position.TotalSeconds);
         }
 
         #endregion Core Playback Logic
 
         #region Playdata Methods
 
+#nullable enable
         /// <summary>
         /// Resets track statistics in the database based on the specified mode and tag.
         /// </summary>
@@ -812,13 +636,13 @@ namespace MP3PlayerV2
                         playListBox.Invoke(() =>
                         {
                             if (playListBox.SelectedIndex >= 0)
-                                selectedTrack = _playlistManager.GetByText(playListBox.SelectedItem.ToString());
+                                selectedTrack = (Track?)playListBox.SelectedItem;
                         });
                     }
                     else
                     {
                         if (playListBox.SelectedIndex >= 0)
-                            selectedTrack = _playlistManager.GetByText(playListBox.SelectedItem.ToString());
+                            selectedTrack = (Track?)playListBox.SelectedItem;
                     }
 
                     if (selectedTrack != null && TrackDatabase.TrackExists(selectedTrack.Guid))
@@ -830,7 +654,7 @@ namespace MP3PlayerV2
             }
             catch (OperationCanceledException oce)
             {
-                DebugUtils.Log("Stats Reset", "Canceled", oce.Message);
+                DebugUtils.Log("Stats Reset", "Canceled", oce.Message, logLevel: DebugUtils.LogLevel.Error);
             }
 
             await LiteDbWriteQueue.WaitForEmptyAsync();
@@ -846,7 +670,7 @@ namespace MP3PlayerV2
                     dialog.CloseAfter(1000);
                 });
             }
-            catch (Exception ex) { DebugUtils.Log("Reset Stats", "Dialog Update", ex.Message); }
+            catch (Exception ex) { DebugUtils.Log("Reset Stats", "Dialog Update", ex.Message, logLevel: DebugUtils.LogLevel.Error); }
         }
 
         /// <summary>
@@ -862,7 +686,7 @@ namespace MP3PlayerV2
         /// <param name="cancellationToken">A token to monitor for cancellation requests. If cancellation is requested, the operation will terminate
         /// early.</param>
         /// <returns></returns>
-        private async Task ResetTrackStatsParallelAsync(string tag, ThemableProcessingDialog? dialog, CancellationToken cancellationToken)
+        private static async Task ResetTrackStatsParallelAsync(string tag, ThemableProcessingDialog? dialog, CancellationToken cancellationToken)
         {
             var allTracks = TrackDatabase.GetAllTracks();
             int total = allTracks.Count;
@@ -881,7 +705,7 @@ namespace MP3PlayerV2
 
                 await semaphore.WaitAsync(cancellationToken);
 
-                var task = Task.Run(async () =>
+                var task = Task.Run(() =>
                 {
                     try
                     {
@@ -1037,9 +861,12 @@ namespace MP3PlayerV2
         /// comparison is case-insensitive.</param>
         /// <param name="track">The <see cref="Track"/> object to be rated. If null, the track is retrieved using <paramref name="item"/>.</param>
         /// <returns><see langword="true"/> if the track's rating was changed; otherwise, <see langword="false"/>.</returns>
-        private bool UserRateTrack(string item, string mode, Track track = null)
+        private bool UserRateTrack(string mode, Track? track = null, int index = -1)
         {
-            track ??= _playlistManager.GetByText(item);
+            track ??= _playlistManager.Get(index);
+
+            if (track == null)
+                return false;
 
             bool changed = false;
             switch (mode?.ToLowerInvariant())
@@ -1073,40 +900,65 @@ namespace MP3PlayerV2
                 {
                     TrackDatabase.SaveStats(track);
                 }
-                catch (Exception ex) { DebugUtils.Log("Like - Dislike", "Save Stats", $"Saving to data base error: {ex.Message}"); }
+                catch (Exception ex) { DebugUtils.Log("Like - Dislike", "Save Stats", $"Saving to data base error: {ex.Message}", logLevel: DebugUtils.LogLevel.Error); }
             }
             return changed;
         }
+
         #endregion Playdata Methods
 
         #region Device Management
 
         /// <summary>
-        /// Populates the list of available audio output devices.
+        /// Populates the audio device dropdown with available devices.
         /// </summary>
-        /// <remarks>This method retrieves all active audio rendering devices and adds their names to the <see
-        /// cref="AudioDeviceList"/>. If a device name contains parentheses, only the portion before the first parenthesis is
-        /// added. The method also stores the device IDs in the <see cref="_audioDeviceIDList"/>. If any devices are found, the
-        /// first device is selected by default.</remarks>
-        private void GetAudioDevices()
+        private void PopulateAudioDeviceList()
         {
-            var enumerator = new MMDeviceEnumerator();
-            var devices = enumerator.EnumAudioEndpoints(DataFlow.Render, DeviceState.Active);
+            AudioDeviceList.Items.Clear();
+            AudioDeviceList.Items.AddRange(_audioDevices.Devices.ToArray());
+        }
 
-            foreach (var device in devices)
+        /// <summary>
+        /// Handles audio device changes from the service.
+        /// </summary>
+        private void OnAudioDevicesChanged(object? sender, DevicesChangedEventArgs e)
+        {
+            AudioDeviceList.Items.Clear();
+            AudioDeviceList.Items.AddRange(e.Devices.ToArray());
+
+            if (e.SuggestedIndex >= 0 && e.SuggestedIndex < AudioDeviceList.Items.Count)
             {
-                if (device.FriendlyName.Contains('('))
+                AudioDeviceList.SelectedIndex = e.SuggestedIndex;
+                
+                var device = _audioDevices.GetDevice(e.SuggestedIndex);
+                if (device != null)
                 {
-                    string[] split = device.FriendlyName.Split('(');
-                    AudioDeviceList.Items.Add(split[0].Trim());
+                    ChangeAudioDevice(device.DeviceID, false);
                 }
-                else { AudioDeviceList.Items.Add(device.FriendlyName); }
-
-                _audioDeviceIDList.Items.Add(device.DeviceID);
-
             }
-            if (AudioDeviceList.Items.Count > 0) AudioDeviceList.SelectedIndex = 0;
 
+            BazthalLib.DebugUtils.Log("AudioDeviceService", "DevicesChanged", 
+                $"Device list updated. Selected index: {e.SuggestedIndex}", 
+                logLevel: BazthalLib.DebugUtils.LogLevel.Info);
+        }
+
+        /// <summary>
+        /// Processes Windows messages and refreshes the list of audio devices when a device change message is received.
+        /// </summary>
+        /// <remarks>Overrides the default message processing to handle device change notifications. When
+        /// a WM_DEVICECHANGE message is received, the method updates the audio device list to reflect any changes. For
+        /// all other messages, the base implementation is called.</remarks>
+        /// <param name="m">A reference to the Windows message to process.</param>
+        protected override void WndProc(ref Message m)
+        {
+            const int WM_DEVICECHANGE = 0x0219;
+
+            if (m.Msg == WM_DEVICECHANGE)
+            {
+                _audioDevices.RefreshDevices();
+            }
+
+            base.WndProc(ref m);
         }
 
         /// <summary>
@@ -1116,282 +968,111 @@ namespace MP3PlayerV2
         /// and initializes the audio system with the new device. The playback position is preserved across the device
         /// change.</remarks>
         /// <param name="deviceId">The identifier of the audio device to switch to. Cannot be null or empty.</param>
-        private void ChangeAudioDevice(string deviceId)
+        private void ChangeAudioDevice(string deviceId, bool userChosen = false)
         {
             // Don't go through the process of setting up new device if there is no stream
-            // InitializeCSCore will setup to new device on setup
-            if (_soundOut == null || _disposed) { return; }
-            var currentPosition = _waveSource?.Position ?? 0;
-            _soundOut?.Stop();
-            DisposeCSCore();
-
-            InitializeCSCore(_currentTrackFilePath, deviceId);
-
-            _waveSource.Position = currentPosition;
-
-            _soundOut.Play();
-            StartPlaybackTimer();
+            if (_audioPlayback.IsDisposed) { return; }
+            
+            var wasPlaying = _audioPlayback.State == PlaybackState.Playing;
+            var model = _currentTrackModel;
+            
+            if (userChosen)
+            {
+                int deviceIndex = _audioDevices.FindDeviceIndex(deviceId);
+                if (deviceIndex >= 0)
+                {
+                    _audioDevices.MarkDeviceAsUserSelected(deviceIndex);
+                }
+            }
+            
+            if (_audioPlayback.ChangeDevice(deviceId, true, _currentTrackFilePath))
+            {
+                _currentTrackModel = model;
+                
+                if (wasPlaying)
+                {
+                    StartPlaybackTimer();
+                }
+            }
         }
 
         #endregion Device Management
 
         #region Command Helpers
 
-        /// <summary>
-        /// Normalizes the specified text by removing diacritics and standardizing quotation marks.
-        /// </summary>
-        /// <param name="text">The input text to be normalized. Can be null or whitespace.</param>
-        /// <returns>A normalized version of the input text with diacritics removed, standardized quotation marks, and converted
-        /// to lowercase. Returns the original text if it is null or whitespace.</returns>
-        private static string NormalizeText(string text)
-        {
-            if (string.IsNullOrWhiteSpace(text))
-                return text;
-
-            // Remove diacritics
-            string normalized = text.Normalize(NormalizationForm.FormD);
-            var sb = new StringBuilder();
-
-            foreach (var c in normalized)
-            {
-                var unicodeCategory = CharUnicodeInfo.GetUnicodeCategory(c);
-                if (unicodeCategory != UnicodeCategory.NonSpacingMark)
-                    sb.Append(c);
-            }
-
-            return sb.ToString()
-                     .Normalize(NormalizationForm.FormC)
-                     .Replace("’", "'")
-                     .Replace("‘", "'")
-                     .Replace("´", "'")
-                     .Replace("`", "'")
-                     .Replace("“", "\"")
-                     .Replace("”", "\"")
-                     .Replace("″", "\"")
-                     .Trim()
-                     .ToLowerInvariant();
-        }
+        /*
 
         /// <summary>
-        /// Counts the number of tracks in the playlist that have not been played.
+        /// Counts the number of tracks in the playlist that match the specified play data filter.
         /// </summary>
-        /// <remarks>This method evaluates the play count of each track in the playlist and determines how
-        /// many tracks have a play count of zero. The result is stored in a command response string indicating the
-        /// number of unplayed tracks.</remarks>
+        /// <param name="data">The filter type (unplayed, liked, disliked, neutral).</param>
         private void CountTrackByPlayData(string data)
         {
-            var cachedlist = _playlistManager.Tracks.ToList();
-            var matches = new List<Track>();
-            switch (data?.ToLowerInvariant())
-            {
-                case "unplayed":
-                    matches = cachedlist.Where(t => (t.PlayCount ?? 0) == 0).ToList();
-                    break;
-                case "liked":
-                    matches = cachedlist.Where(t => t.Liked == true).ToList();
-                    break;
-                case "disliked":
-                    matches = cachedlist.Where(t => t.Disliked == true).ToList();
-                    break;
-            }
-
-            BuildResponseMessage(true, $"{matches.Count} {data} track(s) found in the playlist", _includeData ? matches : null);
-            matches.Clear();
+            var matches = _trackSearch.FindTracksByPlayData(_playlistManager.Tracks, data);
+            BuildResponse(true, $"{matches.Count} {data} track(s) found in the playlist", _includeData ? matches : null);
         }
 
         /// <summary>
-        /// Calculates a match score between a track name and a search term based on their similarity.
+        /// Searches the playlist for tracks whose names match the specified search term.
         /// </summary>
-        /// <remarks>The match score is calculated based on several factors, including whether the track
-        /// name starts with the search term, and whether all words in the search term appear in order within the track
-        /// name. The method performs a case-insensitive comparison.</remarks>
-        /// <param name="trackName">The name of the track to evaluate. Cannot be null.</param>
-        /// <param name="searchTerm">The search term to compare against the track name. Cannot be null.</param>
-        /// <returns>An integer representing the match score. A higher score indicates a closer match between the track name and
-        /// the search term.</returns>
-        private int CalculateMatchScore(string trackName, string searchTerm)
-        {
-            int score = 0;
-            string normalizedTrack = NormalizeText(trackName);
-            string normalizedSearch = NormalizeText(searchTerm);
-
-            score += 10;
-
-            if (normalizedTrack.StartsWith(normalizedSearch, StringComparison.OrdinalIgnoreCase))
-                score += 5;
-
-            var words = normalizedSearch.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            int lastIndex = -1;
-            bool allWordsInOrder = true;
-
-            foreach (var word in words)
-            {
-                int idx = normalizedTrack.IndexOf(word, lastIndex + 1, StringComparison.OrdinalIgnoreCase);
-                if (idx == -1)
-                {
-                    allWordsInOrder = false;
-                    break;
-                }
-                lastIndex = idx;
-            }
-
-            if (allWordsInOrder)
-                score += 3;
-
-            return score;
-        }
-
-        /// <summary>
-        /// Builds a regular expression to match the specified search term, supporting wildcard characters and partial
-        /// matches.
-        /// </summary>
-        /// <remarks>The method normalizes the input search term and converts wildcard characters (*) into
-        /// a pattern that matches zero or more characters. If no wildcard is present, the search term is split into
-        /// words, and the resulting pattern matches any sequence of characters between the words.</remarks>
-        /// <param name="searchTerm">The search term to convert into a regular expression. Wildcard characters (*) are supported.</param>
-        /// <returns>A <see cref="Regex"/> instance that matches the specified search term. The resulting pattern is
-        /// case-insensitive and allows for partial matches.</returns>
-        private static Regex BuildSearchRegex(string searchTerm)
-        {
-            string normalizedSearch = NormalizeText(searchTerm);
-
-            normalizedSearch = Regex.Replace(normalizedSearch, @"([*])\1+", "$1");
-
-            string pattern;
-
-            if (normalizedSearch.Contains("*"))
-            {
-                pattern = Regex.Escape(normalizedSearch).Replace("\\*", ".*");
-            }
-            else
-            {
-
-                pattern = string.Join(".*", normalizedSearch
-                    .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                    .Select(Regex.Escape));
-
-                pattern = ".*" + pattern + ".*";
-            }
-
-            return new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
-        }
-
-        /// <summary>
-        /// Searches the playlist for tracks whose names match the specified search term and generates a response
-        /// message.
-        /// </summary>
-        /// <remarks>This method uses a regular expression to perform the search and normalizes track
-        /// names before matching. If matching tracks are found, a response message is generated indicating the number
-        /// of matches. If no matches are found, a response message is generated indicating that no matches were
-        /// found.</remarks>
-        /// <param name="searchTerm">The term to search for in track names. The search is case-insensitive and supports partial matches.</param>
+        /// <param name="searchTerm">The term to search for in track names.</param>
         private void CountTrackByName(string searchTerm)
         {
-            var regex = BuildSearchRegex(searchTerm);
-            var matches = new List<Track>();
-
-            for (int i = 0; i < _playlistManager.Count; i++)
-            {
-                var track = _playlistManager.Get(i);
-                if (track == null) continue;
-
-                string trackName = NormalizeText(track.ToString());
-
-                if (regex.IsMatch(trackName))
-                    matches.Add(track);
-            }
+            var matches = _trackSearch.FindTracksByName(_playlistManager.Tracks, searchTerm);
 
             if (matches.Count > 0)
-                BuildResponseMessage(true, $"{matches.Count} matching item(s) found in the playlist for: {searchTerm}", _includeData ? matches : null);
+                BuildResponse(true, $"{matches.Count} matching item(s) found in the playlist for: {searchTerm}", _includeData ? matches : null);
             else
-                BuildResponseMessage(false, "No matching item found in the playlist");
-            matches.Clear();
+                BuildResponse(false, "No matching item found in the playlist");
         }
 
         /// <summary>
         /// Selects a track from the playlist based on the specified search term.
         /// </summary>
-        /// <remarks>The method searches the playlist for the best matching track using a scoring
-        /// mechanism. If a match is found, the track is selected,  and playback is started. If no match is found, an
-        /// appropriate response message is generated.</remarks>
-        /// <param name="searchTerm">The term used to search for a matching track. This value is case-insensitive and may include partial or full
-        /// track names.</param>
+        /// <param name="searchTerm">The term used to search for a matching track.</param>
         private void SelectTrackByName(string searchTerm)
         {
-            var regex = BuildSearchRegex(searchTerm);
-            Track bestMatch = null;
-            int bestScore = int.MinValue;
-
-            for (int i = 0; i < _playlistManager.Count; i++)
-            {
-                var track = _playlistManager.Get(i);
-                if (track == null) continue;
-
-                string trackName = NormalizeText(track.ToString());
-                if (regex.IsMatch(trackName))
-                {
-                    int score = CalculateMatchScore(trackName, searchTerm);
-                    if (score > bestScore)
-                    {
-                        bestScore = score;
-                        bestMatch = track;
-                    }
-                }
-            }
+            var bestMatch = _trackSearch.FindBestMatch(_playlistManager.Tracks, searchTerm);
 
             if (bestMatch != null)
             {
                 int index = _playlistManager.IndexOf(bestMatch);
                 playListBox.SelectedIndex = index;
-                BuildResponseMessage(true, $"Match found: {bestMatch}");
+                BuildResponse(true, $"Match found: {bestMatch}");
                 Stop();
                 Play();
                 return;
             }
 
-            BuildResponseMessage(false, "No matching item found in the playlist");
+            BuildResponse(false, "No matching item found in the playlist");
         }
-
+        
         /// <summary>
         /// Searches for a track in the playlist by name and adds the best match to the queue.
         /// </summary>
-        /// <remarks>The method evaluates all tracks in the playlist and selects the one that best matches
-        /// the provided search term. If a match is found, the track is added to the queue, and a success message is
-        /// generated. If no match is found, a failure message is generated instead.</remarks>
-        /// <param name="searchTerm">The search term used to find a matching track. This is compared against the names of tracks in the playlist.</param>
+        /// <param name="searchTerm">The search term used to find a matching track.</param>
         private void QueueTrackByName(string searchTerm)
         {
-            var regex = BuildSearchRegex(searchTerm);
-            Track bestMatch = null;
-            int bestScore = int.MinValue;
-
-            for (int i = 0; i < _playlistManager.Count; i++)
-            {
-                var track = _playlistManager.Get(i);
-                if (track == null) continue;
-
-                string trackName = NormalizeText(track.ToString());
-                if (regex.IsMatch(trackName))
-                {
-                    int score = CalculateMatchScore(trackName, searchTerm);
-                    if (score > bestScore)
-                    {
-                        bestScore = score;
-                        bestMatch = track;
-                    }
-                }
-            }
+            var bestMatch = _trackSearch.FindBestMatch(_playlistManager.Tracks, searchTerm);
 
             if (bestMatch != null)
             {
-                _trackQueue.Enqueue(bestMatch.ToString());
-                BuildResponseMessage(true, $"Added {bestMatch} to the Queue");
+                _trackNavigation.EnqueueTrack(bestMatch.ToString());
+                BuildResponse(true, $"Added {bestMatch} to the Queue");
                 return;
             }
 
-            BuildResponseMessage(false, "No matching item found in the playlist");
+            BuildResponse(false, "No matching item found in the playlist");
         }
-
+        
+        /// <summary>
+        /// Builds a WebSocket response message (wrapper for service method).
+        /// </summary>
+        private void BuildResponse(bool success, string message, object? data = null)
+        {
+            _webSocket.BuildResponse(success, message, data);
+        }
+        */
         #endregion Command Helplers
 
         #region Helper Methods
@@ -1401,10 +1082,12 @@ namespace MP3PlayerV2
         /// </summary>
         /// <remarks>Sets the main window title to "MP3 Player" and clears the current track
         /// label.</remarks>
-        private void ResetUIText()
+        private static void ResetUI()
         {
-            this.Text = "MP3 Player";
-            Cur_Track_Label.Text = string.Empty;
+            var appState = ApplicationStateService.Instance;
+            appState.SetFormTitle?.Invoke("MP3 Player");
+            appState.SetCurrentTrackLabel?.Invoke(string.Empty);
+            appState.SetTrackingSliderValue?.Invoke(0);
         }
 
         /// <summary>
@@ -1471,15 +1154,18 @@ namespace MP3PlayerV2
         /// langword="true"/>, the first track is selected; otherwise, the last track is selected.</param>
         private void AttachAutoPlayHandler(bool firstTrack)
         {
+            var appState = ApplicationStateService.Instance;
+
             void handler()
             {
                 _playlistManager.PlaylistChanged -= handler;
 
                 BeginInvoke(new Action(() =>
                 {
-                    if (playListBox.Items.Count > 0)
+                    var count = appState.GetPlaylistCount?.Invoke() ?? 0;
+                    if (count > 0)
                     {
-                        playListBox.SelectedIndex = firstTrack ? 0 : playListBox.Items.Count - 1;
+                        appState.SetSelectedTrackIndex?.Invoke(firstTrack ? 0 : count - 1);
                         Play();
                     }
                 }));
@@ -1513,7 +1199,7 @@ namespace MP3PlayerV2
                     }
                 }
             }
-            catch (Exception ex) { DebugUtils.Log("Drop Folder", "Recursive Search", $"Error scanning folder '{folderPath}': {ex.Message}"); }
+            catch (Exception ex) { DebugUtils.Log("Drop Folder", "Recursive Search", $"Error scanning folder '{folderPath}': {ex.Message}", logLevel: DebugUtils.LogLevel.Error); }
 
             return list;
         }
@@ -1538,7 +1224,7 @@ namespace MP3PlayerV2
                     GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
 
                     long after = GC.GetTotalMemory(forceFullCollection: true);
-                    DebugUtils.Log("Garbage Collection", "Cleanup", $"Released {(before - after) / 1024 / 1024} MB after adding {addedCount} tracks");
+                    DebugUtils.Log("Garbage Collection", "Cleanup", $"Released {(before - after) / 1024 / 1024} MB after adding {addedCount} tracks", logLevel: DebugUtils.LogLevel.Info);
                 });
             }
         }
@@ -1548,129 +1234,6 @@ namespace MP3PlayerV2
         #region Playlist Management
 
         /// <summary>
-        /// Selects a track from the provided collection based on the current smart shuffle mode.
-        /// </summary>
-        /// <remarks>The selection process considers various factors depending on the smart shuffle mode,
-        /// such as play count, recent play history,  and track preferences (e.g., liked or disliked tracks). If no
-        /// track matches the criteria for the current mode, a fallback  mechanism is used to ensure a track is
-        /// selected, unless the collection is empty.</remarks>
-        /// <param name="tracks">A collection of tracks to choose from. The collection must not be null, but it can be empty.</param>
-        /// <returns>A <see cref="Track"/> object selected according to the smart shuffle mode, or <see langword="null"/> if the
-        /// collection is empty.</returns>
-#nullable enable
-        private Track? PickSmartTrack(IEnumerable<Track> tracks)
-        {
-            var trackList = tracks.ToList();
-            if (!trackList.Any()) return null;
-
-
-            var recentTrackSet = new HashSet<Guid>(_trackHistory.Select(h => h.Guid));
-            Track? track = null;
-
-            List<Track> LeastPlayedOf(IEnumerable<Track> source, bool avoidRecent)
-            {
-                var grouped = source.GroupBy(t => t.PlayCount ?? 0)
-                                    .OrderBy(g => g.Key)
-                                    .FirstOrDefault();
-
-                if (grouped == null) return new List<Track>();
-
-                var bucket = grouped.ToList();
-
-                if (avoidRecent)
-                {
-                    var nonRecent = bucket.Where(t => !recentTrackSet.Contains(t.Guid)).ToList();
-                    if (nonRecent.Any()) return nonRecent;
-                }
-
-                return bucket;
-            }
-
-            List<Track> FallbackCandidates()
-            {
-                var nonRecent = trackList.Where(t => !recentTrackSet.Contains(t.Guid)).ToList();
-                return nonRecent.Any() ? nonRecent : trackList;
-            }
-
-            switch (_smartShuffleMode)
-            {
-                case SmartShuffleMode.UnplayedFirst:
-                    var unplayed = trackList.Where(t => (t.PlayCount ?? 0) == 0).ToList();
-                    track = PickRandom(unplayed.Any()
-                        ? unplayed
-                        : LeastPlayedOf(trackList, avoidRecent: false), _currentTrackModel);
-                    break;
-
-                case SmartShuffleMode.MostPlayed:
-                    var maxPlays = trackList.Max(t => t.PlayCount ?? 0);
-                    if (maxPlays == 0)
-                    {
-                        track = PickRandom(FallbackCandidates(), _currentTrackModel);
-                        break;
-                    }
-
-                    var mostPlayed = trackList
-                        .Where(t => (t.PlayCount ?? 0) == maxPlays && !recentTrackSet.Contains(t.Guid))
-                        .ToList();
-
-                    track = PickRandom(mostPlayed.Any() ? mostPlayed : FallbackCandidates(), _currentTrackModel);
-                    break;
-
-                case SmartShuffleMode.LikedOnly:
-                    var liked = trackList.Where(t => t.Liked == true).ToList();
-                    if (liked.Any())
-                        track = PickRandom(LeastPlayedOf(liked, avoidRecent: true), _currentTrackModel);
-                    break;
-
-                case SmartShuffleMode.AvoidDisliked:
-                    var noDislike = trackList.Where(t => t.Disliked == false).ToList();
-                    track = PickRandom(noDislike.Any() ? noDislike : FallbackCandidates(), _currentTrackModel);
-                    break;
-
-                case SmartShuffleMode.WeightedByRating:
-                case SmartShuffleMode.UnratedFirst:
-                    DebugUtils.Log("Smart Shuffle", "Pick Smart Track", "Rating System not yet Implemented");
-                    break;
-
-                default:
-                    DebugUtils.Log("Smart Shuffle", "Pick Smart Track", $"Unknown smart shuffle mode: {_smartShuffleMode}");
-                    break;
-            }
-
-            if (track == null)
-                track = PickRandom(FallbackCandidates(), _currentTrackModel);
-
-            return track;
-        }
-
-
-        /// <summary>
-        /// Selects a random <see cref="Track"/> from the specified list.
-        /// </summary>
-        /// <param name="list">The list of <see cref="Track"/> objects to choose from. Must not be null or empty.</param>
-        /// <returns>A randomly selected <see cref="Track"/> from the list, or <see langword="null"/> if the list is null or
-        /// empty.</returns>
-        private static Track? PickRandom(List<Track> list, Track? exclude = null)
-        {
-            if (list == null || list.Count == 0)
-                return null;
-
-            if (exclude != null && list.Count > 1)
-            {
-                Track selected;
-                do
-                {
-                    selected = list[_rng.Next(list.Count)];
-                } while (selected == exclude);
-                return selected;
-            }
-
-            return list[_rng.Next(list.Count)];
-        }
-
-#nullable disable
-
-        /// <summary>
         /// Shuffles the current playlist and restores the original track selection.
         /// </summary>
         /// <remarks>This method randomizes the order of tracks in the playlist while ensuring that the
@@ -1678,74 +1241,63 @@ namespace MP3PlayerV2
         /// listening position in a shuffled playlist.</remarks>
         private void ShufflePlaylist()
         {
-            _playlistManager.Shuffle();
-            // restore original selection
+            var shuffled = _playlistOps.ShuffleTracks(_playlistManager.Tracks);
+            _playlistManager.Clear();
+            _playlistManager.AddRange(shuffled);
+            
+            // Restore original selection
             int index = 0;
             if (_currentTrackModel != null)
             {
-              index  = _playlistManager.IndexOf(_currentTrackModel);
+                index = _playlistManager.IndexOf(_currentTrackModel);
             }
             playListBox.SelectedIndex = index;
         }
 
         /// <summary>
-        /// Sorts the playlist based on a specified key and order.
+        /// Sorts the playlist based on a specified field and order.
         /// </summary>
         /// <remarks>This method clears the current playlist and repopulates it with the sorted tracks. It
         /// also updates the UI list box to reflect the new order.</remarks>
-        /// <param name="keySelector">A function to extract a key from a track for sorting purposes.</param>
+        /// <param name="sortField">The field to sort by (Artist, Title, Album, PlayCount, LastPlayed, Liked, Disliked, Rating).</param>
         /// <param name="descending">A boolean value indicating whether the sorting should be in descending order. Defaults to <see
         /// langword="false"/> for ascending order.</param>
-        private void SortPlaylist(Func<Track, object> keySelector, bool descending = false)
+        private void SortPlaylist(string sortField, bool descending = false)
         {
-            var sorted = descending
-                ? [.. _playlistManager.Tracks.OrderByDescending(keySelector).ToList()]
-                : _playlistManager.Tracks.OrderBy(keySelector).ToList();
+            var sorted = _playlistOps.SortTracks(_playlistManager.Tracks, sortField, descending);
+            
+            if (sorted == null)
+            {
+                DebugUtils.Log("Sort Playlist", "SortPlaylist", 
+                    $"Invalid sort field: {sortField}", logLevel: DebugUtils.LogLevel.Warning);
+                return;
+            }
 
             _playlistManager.Clear();
             _playlistManager.AddRange(sorted);
         }
 
+#nullable enable
         /// <summary>
-        /// Selects a random track from the playlist and updates the selection.
-        /// </summary>
-        /// <remarks>This method updates the selected track in the playlist to a random track. If
-        /// <paramref name="blockLast"/> is set to <see langword="true"/>, the method will avoid selecting the track
-        /// that was last played.</remarks>
-        /// <param name="blockLast">If <see langword="true"/>, ensures that the last played track is not selected again.</param>
-        private void GetRandomTrack(bool blockLast = false)
-        {
-            Random Rndnumber = new();
-            int Number = Rndnumber.Next(0, playListBox.Items.Count);
-            string LastSong = playListBox.GetItemText(playListBox.SelectedItem);
-            if (blockLast && LastSong == playListBox.GetItemText(playListBox.Items[Number]))
-            {
-                Number = Rndnumber.Next(0, playListBox.Items.Count);
-            }
-            playListBox.SelectedIndex = Number;
-        }
-
-        /// <summary>
-        /// Adds one or more tracks to the playlist, either from the specified file paths or by prompting the user to
+        /// Adds one or more audio tracks to the playlist, either from the specified files or by prompting the user to
         /// select files.
         /// </summary>
-        /// <remarks>This method processes the specified or selected files to extract track metadata, such
-        /// as title, artist, album, and duration.  Tracks are then added to the playlist and the database. If the
-        /// operation is canceled, no tracks are added. <para> The method supports concurrent processing of files to
-        /// improve performance, with a limit on the maximum degree of concurrency. </para> <para> A progress dialog is
-        /// displayed during the operation, showing the current progress and an estimated time of completion (ETA).
-        /// </para></remarks>
-        /// <param name="droppedItems">An optional array of file paths representing the tracks to add. If <see langword="null"/> or empty, the user
-        /// will be prompted to select files.</param>
-#nullable enable
+        /// <remarks>This method displays a progress dialog while processing the files and updates the
+        /// playlist upon completion.  If the operation is canceled or an error occurs, the dialog will display an
+        /// appropriate message.</remarks>
+        /// <param name="droppedItems">An optional array of file paths representing the audio files to add. If <see langword="null"/> or empty, the
+        /// user will be prompted to select files.</param>
         private async void AddItem(string[]? droppedItems = null)
         {
+            var appState = ApplicationStateService.Instance;
+
             string[]? files = droppedItems;
             if (files == null || files.Length == 0)
             {
                 files = Files.ChooseFiles("", "Music Files|*.flac;*.m4a;*.mp2;*.mp3;*.wav;*.wma");
                 if (files == null || files.Length == 0) return;
             }
+
             var dialog = new ThemableProcessingDialog("Adding tracks...") { StartPosition = FormStartPosition.Manual };
             dialog.Icon = Icon;
             dialog.Location = new(
@@ -1755,118 +1307,39 @@ namespace MP3PlayerV2
 
             dialog.Show(this);
 
-            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-            int total = files.Length;
-            int progress = 0;
-            var guidCache = TrackDatabase.PreloadTrackGuids();
-
-            int processorCount = Environment.ProcessorCount;
-            int maxConcurrency = Math.Min(processorCount * 2, processorCount < 8 ? 20 : 40);
-            var semaphore = new SemaphoreSlim(maxConcurrency);
-            var tasks = new List<Task<(int Index, Track? Track)>>();
-
-            for (int i = 0; i < files.Length; i++)
+            try
             {
-                var file = files[i];
-                var index = i;
+                var newTracks = await _playlistManager.ProcessFilesAsync(
+                    files,
+                    (current, total, eta) => dialog.SetProgress("Track", current, total, eta),
+                    replacePlaylist: false,
+                    dialog.Token
+                );
 
-                await semaphore.WaitAsync(); // wait for a slot
+                dialog.SetCompleted($"Added {newTracks.Count} track(s).");
+                dialog.CloseAfter(1000);
 
-                if (dialog.Token.IsCancellationRequested)
-                    break;
+                var playlistCount = appState.GetPlaylistCount?.Invoke() ?? 0;
+                var selectedIndex = appState.GetSelectedTrackIndex?.Invoke() ?? -1;
 
-                var task = Task.Run(() =>
-                {
-                    try
-                    {
-                        if (dialog.Token.IsCancellationRequested)
-#nullable disable
-                            return (Index: index, Track: null);
-#nullable enable
-                        using var tagFile = TagLib.File.Create(file);
-                        var track = new Track
-                        {
-                            FilePath = file,
-                            Title = !string.IsNullOrEmpty(tagFile.Tag.Title) ? tagFile.Tag.Title.Replace("\r", "").Replace("\n", "") : Path.GetFileNameWithoutExtension(file),
-                            Artist = tagFile.Tag.Performers?.Length > 0 ? string.Join("/", tagFile.Tag.Performers) : "Unknown Artist",
-                            Album = !string.IsNullOrEmpty(tagFile.Tag.Album) ? tagFile.Tag.Album : "",
-                            DurationSeconds = (int)tagFile.Properties.Duration.TotalSeconds,
-                            Hash = TrackDatabase.ComputeFileHash(file, false)
-                        };
+                if (playlistCount > 0 && selectedIndex >= 0)
+                    appState.SetSelectedTrackIndex?.Invoke(playlistCount - 1);
 
-                        track.Guid = TrackDatabase.AssignGuidFromCache(track, guidCache);
-                        DebugUtils.Log("Track Add", $"{index}", $"{track}");
-                        return (Index: index, Track: track);
-                    }
-                    catch (Exception ex)
-                    {
-                        DebugUtils.Log("AddItem", this.Name, ex.Message);
-#nullable disable
-                        return (Index: index, Track: null);
-#nullable enable
-                    }
-                    finally
-                    {
-                        int currentProgress = Interlocked.Increment(ref progress);
-
-                        string? etaText = null;
-
-                        if (currentProgress % _updateStep == 0 || currentProgress == total)
-                        {
-                            double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
-                            double avgPerFile = elapsedSeconds / currentProgress;
-                            int remaining = total - currentProgress;
-                            double etaSeconds = avgPerFile * remaining;
-
-                            etaText = $"ETA: {TimeSpan.FromSeconds(etaSeconds):mm\\:ss}";
-                            _lastEta = etaText;
-                        }
-                        else
-                        {
-                            etaText = _lastEta ?? "ETA: --:--";
-                        }
-
-                        dialog.SetProgress("Track", currentProgress, total, etaText);
-                        semaphore.Release();
-                    }
-                });
-#nullable disable
-                tasks.Add(task);
-#nullable enable
+                CleanupIfNeeded(newTracks.Count);
             }
-
-            var results = await Task.WhenAll(tasks);
-
-            foreach (var result in results)
+            catch (OperationCanceledException)
             {
-                DebugUtils.Log("ADD Items", "result", $"{result}");
-
-                if (result.Track != null)
-                {
-                    TrackDatabase.LoadStats(result.Track);
-                }
+                dialog.SetCompleted("Operation cancelled.");
+                dialog.CloseAfter(1000);
             }
-
-            var newTracks = results
-                .Where(r => r.Track != null)
-                .OrderBy(r => r.Index)
-                .Select(r => r.Track!)
-                .ToList();
-
-
-
-            _playlistManager.AddRange(newTracks);
-
-            dialog.SetCompleted($"Added {newTracks.Count} track(s).");
-            dialog.CloseAfter(1000);
-
-            if (_playlistManager.Count > 0 && playListBox.SelectedIndex >= 0)
-                playListBox.SelectedIndex = playListBox.Items.Count - 1;
-
-            CleanupIfNeeded(newTracks.Count);
+            catch (Exception ex)
+            {
+                dialog.SetCompleted($"Error: {ex.Message}");
+                dialog.CloseAfter(2000);
+            }
         }
-#nullable disable
 
+#nullable disable
         /// <summary>
         /// Removes the currently selected item from the playlist.
         /// </summary>
@@ -1877,10 +1350,11 @@ namespace MP3PlayerV2
             int index = playListBox.SelectedIndex;
             if (index >= 0)
             {
-                if (!string.IsNullOrWhiteSpace(Cur_Track_Label.Text) && Cur_Track_Label.Text.Contains(playListBox.SelectedItem.ToString()))
+                if (_currentTrackModel != null && _currentTrackModel.Equals(_playlistManager.Get(index)))
+               // if (!string.IsNullOrWhiteSpace(Cur_Track_Label.Text) && Cur_Track_Label.Text.Contains(playListBox.SelectedItem.ToString()))
                 {
-                    DisposeCSCore();
-                    ResetUIText();
+                    _audioPlayback.Dispose();
+                    ResetUI();
                 }
                 _playlistManager.RemoveAt(index);
             }
@@ -1892,9 +1366,9 @@ namespace MP3PlayerV2
         /// <remarks>This method displays a file save dialog to select the destination file path. If a
         /// valid file path is provided, the playlist is saved asynchronously. A processing dialog is shown during the
         /// save operation and closes upon completion.</remarks>
-        private async void SavePlaylist()
+        private async void SavePlaylist(List<Track> trackList = null)
         {
-            string saveFileName = Files.SaveFile("", "M3U Playlists|*.m3u", "Save Playlist");
+            string saveFileName = Files.SaveFile("", _defaultPlaylistExtentionFilter, "Save Playlist", true);
             if (string.IsNullOrWhiteSpace(saveFileName)) return;
 
             var dialog = new ThemableProcessingDialog("Saving Playlist...", showProgress: true, showCancelButton: false) { StartPosition = FormStartPosition.Manual };
@@ -1905,8 +1379,29 @@ namespace MP3PlayerV2
             );
 
             dialog.Show(this);
+            var ext = Path.GetExtension(saveFileName).ToLowerInvariant();
+            DebugUtils.Log("Save Playlist", "File Extension", $"Saving playlist as '{ext}'", logLevel: DebugUtils.LogLevel.Info);
+            switch (ext)
+            {
+                case ".jsonpl":
+                    await Task.Run(() => _playlistManager.SaveToJsonPl(saveFileName, trackList));
+                    break;
+                case ".m3u":
+                    try
+                    {
+                        await Task.Run(() => _playlistManager.SaveToM3U(saveFileName, trackList));
+                    }
+                    catch (Exception ex)
+                    {
+                        dialog.SetCompleted($"Error: {ex.Message}");
+                        dialog.CloseAfter(2000);
+                        return;
+                    }
+                    break;
 
-            await Task.Run(() => _playlistManager.SaveToM3U(saveFileName));
+            }
+
+            //await Task.Run(() => _playlistManager.SaveToM3U(saveFileName, trackList));
 
             dialog.SetCompleted("Playlist saved successfully.");
             dialog.CloseAfter(1000);
@@ -1925,16 +1420,12 @@ namespace MP3PlayerV2
         /// first track will be selected.</param>
         private async void LoadPlaylist(string droppedItem = null, bool keepSelection = true)
         {
-            string lastItem = null;
-            if (!string.IsNullOrWhiteSpace(Cur_Track_Label.Text))
-            {
-                lastItem = Cur_Track_Label.Text;
-            }
+            var appState = ApplicationStateService.Instance;
 
             string loadFileName = droppedItem;
             if (loadFileName == null || loadFileName.Length == 0)
             {
-                loadFileName = Files.ChooseFile("", "M3U Playlists|*.m3u;*.m3u8", "Open Playlist");
+                loadFileName = Files.ChooseFile("", _defaultPlaylistExtentionFilter, "Open Playlist");
                 if (string.IsNullOrWhiteSpace(loadFileName)) return;
             }
 
@@ -1946,33 +1437,51 @@ namespace MP3PlayerV2
             );
             dialog.Show(this);
 
-            try
+            var ext = Path.GetExtension(loadFileName).ToLowerInvariant();
+            switch (ext)
             {
-                await Task.Run(() => _playlistManager.LoadFromM3U(loadFileName, (current, total, eta) =>
-                {
-                    dialog.Invoke(() => dialog.SetProgress("Track", current, total, eta));
-                }, dialog.Token));
-            }
-            catch (OperationCanceledException)
-            {
-                dialog.SetCompleted("Cancelled by user.");
-            }
-            finally
-            {
-                dialog.CloseAfter(1000);
+                case ".jsonpl":
+                    await Task.Run(() => _playlistManager.LoadFromJsonPl(loadFileName));
+                    break;
+                case ".m3u":
+                    try
+                    {
+                        await Task.Run(() => _playlistManager.LoadFromM3U(loadFileName, (current, total, eta) =>
+                        {
+                            dialog.Invoke(() => dialog.SetProgress("Track", current, total, eta));
+                        }, dialog.Token));
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        dialog.SetCompleted("Cancelled by user.");
+                    }
+                    finally
+                    {
+                        dialog.CloseAfter(1000);
+                    }
+                    break;
             }
 
 
-            if (playListBox.Items.Count > 0)
+
+            string lastItem = null;
+            if (_currentTrackModel != null)
+            {
+                lastItem = _currentTrackModel.ToString();
+            }
+
+            var playlistCount = appState.GetPlaylistCount?.Invoke() ?? 0;
+            if (playlistCount > 0)
             {
                 if (lastItem != null && keepSelection)
                 {
                     bool found = false;
-                    for (int i = 0; i < playListBox.Items.Count; i++)
+                    for (int i = 0; i < playlistCount; i++)
                     {
-                        if (playListBox.Items[i].ToString() == lastItem)
+                        var item = playListBox.Items[i];
+                        if (item.ToString() == lastItem)
                         {
-                            playListBox.SelectedIndex = i;
+                            appState.SetSelectedTrackIndex?.Invoke(i);
                             found = true;
                             break;
                         }
@@ -1980,18 +1489,70 @@ namespace MP3PlayerV2
 
                     if (!found)
                     {
-                        playListBox.SelectedIndex = 0;
+                        appState.SetSelectedTrackIndex?.Invoke(0);
                     }
                 }
                 else
                 {
-                    playListBox.SelectedIndex = 0;
+                    appState.SetSelectedTrackIndex?.Invoke(0);
                 }
             }
 
 
             dialog.SetCompleted("Playlist loaded.");
             dialog.CloseAfter(1000);
+        }
+
+        /// <summary>
+        /// Generates a playlist based on the specified smart shuffle mode and a collection of tracks.
+        /// </summary>
+        /// <remarks>The method applies the specified shuffle mode to filter and sort the provided tracks.
+        /// If no tracks match the criteria for the selected mode, a message box is displayed to inform the user,  and
+        /// no playlist is generated. Otherwise, the user is prompted to choose an action: load the playlist,  save it
+        /// to a file, or close without taking action.</remarks>
+        /// <param name="mode">The <see cref="SmartShuffleMode"/> to use for filtering and ordering the playlist.  Determines the criteria
+        /// for selecting tracks (e.g., unplayed tracks, most played tracks, etc.).</param>
+        /// <param name="tracks">A collection of <see cref="Track"/> objects to be considered for playlist generation.  The collection must
+        /// not be empty.</param>
+        private void GeneratePlayList(SmartShuffleMode mode, IEnumerable<Track> tracks)
+        {
+            var trackList = tracks.ToList();
+            if (trackList.Count <= 0) return;
+
+            string modeText = mode.ToString().Replace("_", " ");
+            var filteredList = _playlistOps.GenerateSmartPlaylist(trackList, mode);
+
+            if (filteredList.Count <= 0) 
+            { 
+                ThemableMessageBox.Show($"No tracks match the chosen filter: {{{modeText}}}", 
+                    "Generation Failed", MessageBoxButtons.OK, autoCloseMilliseconds: 3000, MessageBoxIcon.Asterisk); 
+                return; 
+            }
+
+            var total = _playlistOps.CalculateTotalDuration(filteredList);
+            string durationText = $"{(int)total.TotalHours:D2}:{total.Minutes:D2}:{total.Seconds:D2}";
+
+            string trackWord = filteredList.Count == 1 ? "track" : "tracks";
+            string msg =
+                $"Generated a playlist with {filteredList.Count} {modeText} {trackWord}. \n" +
+                $"Duration: {durationText}\n\n" +
+                "Choose an action:";
+
+            var result = ThemableMessageBox.Show($"{msg}", "Playlist Generated", 
+                [("&Load", DialogResult.OK), ("&Save", DialogResult.Continue), ("&Close", DialogResult.Cancel)]);
+
+            switch (result)
+            {
+                case DialogResult.OK:
+                    _playlistManager.Clear();
+                    _playlistManager.AddRange(filteredList);
+                    break;
+                case DialogResult.Continue:
+                    SavePlaylist(filteredList);
+                    break;
+                case DialogResult.Cancel:
+                    break;
+            }
         }
 
         #endregion Playlist Management
@@ -2008,8 +1569,7 @@ namespace MP3PlayerV2
             using var settingsForm = new SettingsForm(_settings);
             if (settingsForm.ShowDialog() == DialogResult.OK)
             {
-                _maxTrackHistory = Math.Min(_settings.Playback.MaxTrackHistory, 9999);
-                _trackHistory.EnsureCapacity(_maxTrackHistory);
+                _trackNavigation.MaxHistorySize = Math.Min(_settings.Playback.MaxTrackHistory, 9999);
 
                 bool parsed = Enum.TryParse(_settings.SmartShuffle.Mode, out SmartShuffleMode mode);
                 if (parsed) _smartShuffleMode = mode;
@@ -2017,10 +1577,10 @@ namespace MP3PlayerV2
                 _includeData = _settings.CommandBehaviour.IncludeTracksInCount;
 
                 //Update WebSocket Info
-                _webSocketAddress = _settings.WebSocket.Address;
-                _webSocketPort = _settings.WebSocket.Port;
-                _webSocketEndPoint = _settings.WebSocket.EndPoint;
-                _autoStart = _settings.WebSocket.AutoStart;
+                //_webSocketAddress = _settings.WebSocket.Address;
+                //_webSocketPort = _settings.WebSocket.Port;
+                //_webSocketEndPoint = _settings.WebSocket.EndPoint;
+                //_autoStart = _settings.WebSocket.AutoStart;
                 SaveSettings();
             }
         }
@@ -2035,7 +1595,7 @@ namespace MP3PlayerV2
         {
             if (File.Exists(_customThemeConfig))
             {
-                var config = new JSON<ThemeColors>(_customThemeConfig, [new ThemeColorsJsonConverter()]);
+                var config = new JSON<ThemeColors>(_customThemeConfig, [new BazthalLib.Extensibility.Serialization.ThemeColorsJsonConverter()]);
                 config.Load();
 
                 var theme = config.Data;
@@ -2057,130 +1617,63 @@ namespace MP3PlayerV2
         }
 
         /// <summary>
-        /// Loads application settings from the configuration file, migrating from an old format if necessary.
+        /// Loads and applies the application settings from the configuration source.
         /// </summary>
-        /// <remarks>
-        /// If the settings file exists, this method reads and parses its JSON content. If the configuration version is outdated,
-        /// it creates a backup, migrates the settings to the new format, and saves the updated configuration. Otherwise, it loads
-        /// the settings using the <see cref="JSON{AppSettings}"/> helper. Playback and WebSocket settings are applied to the UI and
-        /// internal fields. If the settings file does not exist, a new settings file is created with default values.
-        /// </remarks>
+        /// <remarks>This method initializes various application settings, including playback, websocket,
+        /// track rating, and smart shuffle configurations. It ensures that the settings are applied to the relevant
+        /// components and prepares the application for operation based on the user's preferences.</remarks>
         private void LoadSettings()
         {
-            _jsonConfig = new JSON<AppSettings>(_settingsConfig);
-
-            if (File.Exists(_settingsConfig))
+            //Playback Settings
+            _volumeLevel = _settings.Playback.VolumeLvl;
+            
+            // Find and select the saved audio device
+            int deviceIndex = _audioDevices.FindDeviceByName(_settings.Playback.AudioDevice);
+            if (deviceIndex >= 0)
             {
-                string rawJson = File.ReadAllText(_settingsConfig);
-                using var jsonDoc = JsonDocument.Parse(rawJson);
-                var root = jsonDoc.RootElement;
-
-                int configVersion = 0;
-                if (root.TryGetProperty("ConfigVersion", out var versionProp) && versionProp.ValueKind == JsonValueKind.Number)
-                {
-                    configVersion = versionProp.GetInt32();
-                }
-
-                if (configVersion == 0)
-                {
-                    //Create backup of old config
-                    Files.MigrationBackUp(_settingsConfig);
-                    DebugUtils.Log("Load Settings", Name, "Migrating from old config format");
-                    _settings = MigrateFromOldConfig(root);
-
-                    // Save migrated config
-                    string migratedJson = JsonSerializer.Serialize(_settings, new JsonSerializerOptions { WriteIndented = true });
-                    File.WriteAllText(_settingsConfig, migratedJson);
-                }
-                else
-                {
-                    _jsonConfig.Load();
-                    _settings = _jsonConfig.Data;
-                }
-
-                //Playback Settings
-                _volumeLevel = _settings.Playback.VolumeLvl;
-                AudioDeviceList.SelectedItem = _settings.Playback.AudioDevice;
-                playList_Options.SelectedItem = _settings.Playback.PlayListMode;
-                _maxTrackHistory = Math.Min(_settings.Playback.MaxTrackHistory, 9999);
-                _trackHistory.EnsureCapacity(_maxTrackHistory);
-
-                //Websocket Settings
-                _webSocketAddress = _settings.WebSocket.Address;
-                _webSocketPort = _settings.WebSocket.Port;
-                _webSocketEndPoint = _settings.WebSocket.EndPoint;
-                _autoStart = _settings.WebSocket.AutoStart;
-
-                //Track Rating Settings
-                _leadInImmunity = _settings.TrackRating.LeadInImmunitySeconds;
-                _leadOutImmunity = _settings.TrackRating.LeadOutImmunitySeconds;
-
-                _includeData = _settings.CommandBehaviour.IncludeTracksInCount;
-                //Smart Shuffle Settings
-
-                bool parsed = Enum.TryParse(_settings.SmartShuffle.Mode, out SmartShuffleMode mode);
-                if (parsed) _smartShuffleMode = mode;
-
-
-                //New settings to be added here
-
-                SetVolume(_volumeLevel);
+                AudioDeviceList.SelectedIndex = deviceIndex;
             }
-            else
-            {
-                DebugUtils.Log("Load Settings", Name, "File Not found, creating new file");
-                _settings = new AppSettings();
-                SaveSettings();
-            }
-        }
-
-        /// <summary>
-        /// Migrates configuration data from an old JSON format to the current <see cref="AppSettings"/> structure.
-        /// </summary>
-        /// <param name="root">The <see cref="JsonElement"/> representing the root of the old configuration JSON.</param>
-        /// <returns>
-        /// A new <see cref="AppSettings"/> instance populated with values extracted from the old configuration.
-        /// If a property is missing or of an unexpected type, a default value is used.
-        /// </returns>
-        /// <remarks>
-        /// This method reads playback and WebSocket settings from the provided <paramref name="root"/> element.
-        /// It sets default values for missing properties and updates the <c>ConfigVersion</c> to the latest version.
-        /// </remarks>
-        private AppSettings MigrateFromOldConfig(JsonElement root)
-        {
-            var newConfig = new AppSettings();
-            // Playback Settings
-            newConfig.Playback.VolumeLvl = root.TryGetProperty("VolumeLvl", out var vol) && vol.ValueKind == JsonValueKind.Number ? vol.GetInt32() : 100;
-            newConfig.Playback.AudioDevice = root.TryGetProperty("AudioDevice", out var audioDev) && audioDev.ValueKind == JsonValueKind.String ? audioDev.GetString()! : string.Empty;
-            newConfig.Playback.PlayListMode = root.TryGetProperty("PlayListMode", out var plMode) && plMode.ValueKind == JsonValueKind.String ? plMode.GetString()! : string.Empty;
+            
+            playList_Options.SelectedItem = _settings.Playback.PlayListMode;
+            _trackNavigation.MaxHistorySize = Math.Min(_settings.Playback.MaxTrackHistory, 9999);
 
             //Websocket Settings
-            newConfig.WebSocket.Address = root.TryGetProperty("WebSocketAddress", out var wsAddr) && wsAddr.ValueKind == JsonValueKind.String ? wsAddr.GetString()! : "127.0.0.1";
-            newConfig.WebSocket.Port = root.TryGetProperty("WebSocketPort", out var wsPort) && wsPort.ValueKind == JsonValueKind.Number ? wsPort.GetInt32() : 8080;
-            newConfig.WebSocket.EndPoint = root.TryGetProperty("WebSocketEndPoint", out var wsEnd) && wsEnd.ValueKind == JsonValueKind.String ? wsEnd.GetString()! : "/";
-            newConfig.WebSocket.AutoStart = root.TryGetProperty("AutoStart", out var autoStart) && autoStart.ValueKind == JsonValueKind.True;
+            //_webSocketAddress = _settings.WebSocket.Address;
+            //_webSocketPort = _settings.WebSocket.Port;
+            //_webSocketEndPoint = _settings.WebSocket.EndPoint;
+            //_autoStart = _settings.WebSocket.AutoStart;
 
-            newConfig.ConfigVersion = _newConfigVersion;
+            //Track Rating Settings
+            _leadInImmunity = _settings.TrackRating.LeadInImmunitySeconds;
+            _leadOutImmunity = _settings.TrackRating.LeadOutImmunitySeconds;
 
-            return newConfig;
+            _includeData = _settings.CommandBehaviour.IncludeTracksInCount;
+            //Smart Shuffle Settings
+
+            bool parsed = Enum.TryParse(_settings.SmartShuffle.Mode, out SmartShuffleMode mode);
+            if (parsed)
+            {
+                _smartShuffleMode = mode;
+                ApplicationStateService.Instance.SmartShuffleMode = mode;
+            }
+
+            _defaultPlaylistExtentionFilter = _settings.Application.DefaultPlaylistExtension == ".jsonpl"
+            ? "jsonPlaylist|*.jsonpl|M3U Playlists|*.m3u;*.m3u8|All Supported|*.m3u;*.m3u8;*.jsonpl"
+            : "M3U Playlists|*.m3u;*.m3u8|jsonPlaylist|*.jsonpl|All Supported|*.m3u;*.m3u8;*.jsonpl"; ;
+            //New settings to be added here
+
+            SetVolume(_volumeLevel);
         }
 
         /// <summary>
-        /// Saves the current application settings to a JSON configuration file.
+        /// Saves the current application settings to persistent storage.
         /// </summary>
-        /// <remarks>
-        /// This method updates the playback and WebSocket settings in the <see cref="AppSettings"/> object,
-        /// ensures the configuration version is current, and writes the settings to the configuration file.
-        /// It also creates a backup of the existing configuration file before saving.
-        /// </remarks>
+        /// <remarks>This method updates the playback, WebSocket, and track rating settings based on the
+        /// current application state and persists them using the <see cref="ConfigManager.Save"/> method. It ensures
+        /// that default selections are made for audio devices and playlist options if none are currently
+        /// selected.</remarks>
         private void SaveSettings()
         {
-            if (_settings == null)
-            {
-                DebugUtils.Log("Save Settings", Name, "_settings is NULL, aborting");
-                return;
-            }
-
             //Playback Settings
             _settings.Playback.VolumeLvl = _volumeLevel;
 
@@ -2192,13 +1685,13 @@ namespace MP3PlayerV2
                 playList_Options.SelectedIndex = 0;
             _settings.Playback.PlayListMode = playList_Options.SelectedItem?.ToString() ?? string.Empty;
 
-            _settings.Playback.MaxTrackHistory = _maxTrackHistory;
+            _settings.Playback.MaxTrackHistory = _trackNavigation.MaxHistorySize;
 
-            //WebSocket Settings
-            _settings.WebSocket.Address = _webSocketAddress;
-            _settings.WebSocket.Port = _webSocketPort;
-            _settings.WebSocket.EndPoint = _webSocketEndPoint;
-            _settings.WebSocket.AutoStart = _autoStart;
+            ////WebSocket Settings
+            //_settings.WebSocket.Address = _webSocketAddress;
+            //_settings.WebSocket.Port = _webSocketPort;
+            //_settings.WebSocket.EndPoint = _webSocketEndPoint;
+            //_settings.WebSocket.AutoStart = _autoStart;
 
             //Track Rating Settings
             _settings.TrackRating.LeadInImmunitySeconds = _leadInImmunity;
@@ -2206,21 +1699,8 @@ namespace MP3PlayerV2
 
             // New Settings Here
 
-            // Ensure ConfigVersion is set
-            if (_settings.ConfigVersion == _lastConfigVersion)
-                _settings.ConfigVersion = _newConfigVersion;
+            ConfigManager.Save();
 
-            _jsonConfig.SetData(_settings);
-
-            // Backup existing config before saving
-            Files.CreateBackup(_settingsConfig, 3);
-
-            var options = new JsonSerializerOptions
-            {
-                WriteIndented = true
-            };
-            string json = JsonSerializer.Serialize(_settings, options);
-            File.WriteAllText(_settingsConfig, json);
         }
 
         #endregion Configuration
@@ -2242,9 +1722,8 @@ namespace MP3PlayerV2
         /// langword="null"/>.</param>
         private void UpdateRatingMenuItems(ContextMenuStrip menu, Track track)
         {
-            if (track == null) return;
+            if (menu == null || track == null) return;
 
-            //Make sure all is unchecked
             cms_Like.Checked = false;
             cms_Dislike.Checked = false;
             cms_Neutral.Checked = false;
@@ -2270,7 +1749,7 @@ namespace MP3PlayerV2
         private void ContextMenu_Opening(object sender, CancelEventArgs e)
         {
             if (playListBox.SelectedItem == null) return;
-            var track = _playlistManager.GetByText(playListBox.SelectedItem.ToString());
+            var track = (Track)playListBox.SelectedItem;
             UpdateRatingMenuItems(cms_Main, track);
         }
 
@@ -2360,7 +1839,7 @@ namespace MP3PlayerV2
         /// </summary>
         /// <param name="sender">The source of the event.</param>
         /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
-        private void ClearPlaylistButton_Click(object sender, EventArgs e) { DisposeCSCore(); ResetUIText(); _playlistManager.Clear(); }
+        private void ClearPlaylistButton_Click(object sender, EventArgs e) { _audioPlayback.Dispose(); ResetUI(); _playlistManager.Clear(); }
 
         /// <summary>
         /// Handles the Click event of the Exit button, closing the current form.
@@ -2385,60 +1864,20 @@ namespace MP3PlayerV2
         {
             if (sender is ToolStripMenuItem menuItem && menuItem.Tag is string tag)
             {
-                // Expecting format: "Field|Order"
                 var parts = tag.Split('|');
                 if (parts.Length == 2)
                 {
                     string sortField = parts[0];
                     bool descending = bool.TryParse(parts[1], out var desc) && desc;
 
-                    DebugUtils.Log("Sort Playlist", Name, $"Sorting Playlist by: {sortField} | Descending: {descending}");
+                    DebugUtils.Log("Sort Playlist", Name, $"Sorting Playlist by: {sortField} | Descending: {descending}", logLevel: DebugUtils.LogLevel.Info);
 
-                    switch (sortField?.ToLowerInvariant())
-                    {
-                        case "artist":
-                            SortPlaylist(t => t.Artist, descending);
-                            Debug.WriteLine($"Sorting Playlist by: Artist | Descending: {descending}");
-                            break;
-                        case "title":
-                            SortPlaylist(t => t.Title, descending);
-                            Debug.WriteLine($"Sorting Playlist by: Title | Descending: {descending}");
-                            break;
-                        case "album":
-                            SortPlaylist(t => t.Album, descending);
-                            Debug.WriteLine($"Sorting Playlist by: Album | Descending: {descending}");
-                            break;
-                        case "playcount":
-                            SortPlaylist(t => t.PlayCount, descending);
-                            Debug.WriteLine($"Sorting Playlist by: PlayCount | Descending: {descending}");
-                            break;
-                        case "lastplayed":
-                            SortPlaylist(t => t.LastPlayed ?? DateTime.MinValue, descending);
-                            Debug.WriteLine($"Sorting Playlist by: Artist | Descending: {descending}");
-                            break;
-                        case "liked":
-                            SortPlaylist(t => t.Liked, descending);
-                            Debug.WriteLine($"Sorting Playlist by: Liked | Descending: {descending}");
-                            break;
-                        case "disliked":
-                            SortPlaylist(t => t.Disliked, descending);
-                            Debug.WriteLine($"Sorting Playlist by: Disliked | Descending: {descending}");
-                            break;
-                        case "rating":
-                            SortPlaylist(t => t.RatingScore, descending);
-                            Debug.WriteLine($"Sorting Playlist by: Rating | Descending: {descending}");
-                            break;
-                        default:
-                            DebugUtils.Log("Sort Playlist", Name, $" Unknown Sortfield: {sortField}");
-                            Debug.WriteLine($" Unknown Sortfield: {sortField}");
-                            break;
-                    }
+                    SortPlaylist(sortField, descending);
                 }
                 else
                 {
-                    DebugUtils.Log("Sort Playlist", Name, $"Invalid Tag Format: {tag}");
+                    DebugUtils.Log("Sort Playlist", Name, $"Invalid Tag Format: {tag}", logLevel: DebugUtils.LogLevel.Warning);
                 }
-
             }
         }
 
@@ -2482,7 +1921,7 @@ namespace MP3PlayerV2
         /// "liked." Ensure that <see cref="playListBox.SelectedIndex"/> is valid before invoking this method.</remarks>
         /// <param name="sender">The source of the event, typically the button that was clicked.</param>
         /// <param name="e">The event data associated with the click action.</param>
-        private void LikeMenuButton_Click(object sender, EventArgs e) { UserRateTrack(playListBox.SelectedItem.ToString(), "like"); }
+        private void LikeMenuButton_Click(object sender, EventArgs e) { UserRateTrack("like", (Track)playListBox.SelectedItem, playListBox.SelectedIndex); }
 
         /// <summary>
         /// Handles the click event for the Neutral menu button.
@@ -2491,7 +1930,7 @@ namespace MP3PlayerV2
         /// Ensure that <see cref="playListBox.SelectedIndex"/> is valid before invoking this method.</remarks>
         /// <param name="sender">The source of the event, typically the button that was clicked.</param>
         /// <param name="e">The event data associated with the click action.</param>
-        private void NeutralMenuButton_Click(object sender, EventArgs e) { UserRateTrack(playListBox.SelectedItem.ToString(), "neutral"); }
+        private void NeutralMenuButton_Click(object sender, EventArgs e) { UserRateTrack("neutral", (Track)playListBox.SelectedItem, playListBox.SelectedIndex); }
 
         /// <summary>
         /// Handles the click event for the "Dislike" menu button.
@@ -2500,7 +1939,7 @@ namespace MP3PlayerV2
         /// "dislike." Ensure that a valid track is selected in the playlist before invoking this method.</remarks>
         /// <param name="sender">The source of the event, typically the button that was clicked.</param>
         /// <param name="e">The event data associated with the click action.</param>
-        private void DislikeMenuButton_Click(object sender, EventArgs e) { UserRateTrack(playListBox.SelectedItem.ToString(), "dislike"); }
+        private void DislikeMenuButton_Click(object sender, EventArgs e) { UserRateTrack("dislike", (Track)playListBox.SelectedItem, playListBox.SelectedIndex); }
 
         /// <summary>
         /// Displays detailed information about the currently selected track in the playlist.
@@ -2512,21 +1951,69 @@ namespace MP3PlayerV2
         /// <param name="e">An <see cref="EventArgs"/> instance containing the event data.</param>
         private void TrackInfo_Click(object sender, EventArgs e)
         {
-            if (playListBox.Items.Count == 0 || playListBox.SelectedIndex == -1) return;
+            var appState = ApplicationStateService.Instance;
+            var playlistCount = appState.GetPlaylistCount?.Invoke() ?? 0;
+            var selectedIndex = appState.GetSelectedTrackIndex?.Invoke() ?? -1;
 
-            var curTrack = _playlistManager.GetByText(playListBox.SelectedItem.ToString());
+            if (playlistCount == 0 || selectedIndex == -1) return;
+
+            var curTrack = (Track)playListBox.SelectedItem;
 
             if (curTrack == null) return;
 
-            var trackInfoDlg = new TrackInformationDialog(curTrack);
-            trackInfoDlg.StartPosition = FormStartPosition.Manual;
-            trackInfoDlg.Location = new(
-                this.Location.X + (this.Width - trackInfoDlg.Width) / 2,
-                this.Location.Y + (this.Height - trackInfoDlg.Height) / 2
-                );
-            trackInfoDlg.Show();
+            TrackDatabase.LoadStats(curTrack);
 
+            WinForms.OpenForm<TrackInformationDialog>(
+                action: form => form.PopulateTrackInfo(curTrack),
+                args: curTrack,
+                centerToParent: true,
+                allowMultiple: true,
+                maxInstances: 3,
+                reuseMode: FormReuseMode.Rotate);
         }
+
+        /// <summary>
+        /// Handles the click event for generating a playlist based on the selected shuffle mode.
+        /// </summary>
+        /// <remarks>The method retrieves the shuffle mode from the <see cref="ToolStripMenuItem.Tag"/>
+        /// property, parses it into a <see cref="SmartShuffleMode"/>, and generates a playlist using the specified mode
+        /// and the available tracks.</remarks>
+        /// <param name="sender">The source of the event, expected to be a <see cref="ToolStripMenuItem"/> with a <see cref="string"/> value
+        /// in its <see cref="ToolStripItem.Tag"/> property.</param>
+        /// <param name="e">The event data associated with the click event.</param>
+        private void GeneratePlaylist_Click(object sender, EventArgs e)
+        {
+            if (sender is ToolStripMenuItem menuItem && menuItem.Tag is string tag)
+            {
+                _ = Enum.TryParse(tag, out SmartShuffleMode mode);
+                GeneratePlayList(mode, _playlistManager.Tracks);
+            }
+        }
+
+        /// <summary>
+        /// Displays the total duration of the current playlist in a message box.
+        /// </summary>
+        /// <remarks>If the playlist is empty, a message box indicating this is displayed instead. The
+        /// total duration is calculated as the sum of the durations of all tracks in the playlist and is formatted as
+        /// "HH:mm:ss".</remarks>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The event data associated with the triggering event.</param>
+        private void ShowPlaylistDuration_Click(object sender, EventArgs e)
+        {
+            var playlist = _playlistManager.Tracks;
+            if (!playlist.Any())
+            {
+                ThemableMessageBox.Show("The playlist is empty.", "Duration", MessageBoxButtons.OK, autoCloseMilliseconds: 10000);
+                return;
+            }
+
+            var total = _playlistOps.CalculateTotalDuration(playlist);
+            string durationText = $"{(int)total.TotalHours:D2}:{total.Minutes:D2}:{total.Seconds:D2}";
+            
+            ThemableMessageBox.Show($"Current playlist has {playlist.Count} track(s).\nTotal duration: {durationText}", 
+                "Playlist Duration", MessageBoxButtons.OK, autoCloseMilliseconds: 10000);
+        }
+
         #endregion Buttons
 
         #region Sliders 
@@ -2544,7 +2031,7 @@ namespace MP3PlayerV2
             _volumeLevel = Volume_Slider.Value;
             SetVolume(_volumeLevel);
             SaveSettings();
-            DebugUtils.Log("Volume Setter", this.AccessibleName, $"Volume Level {Volume_Slider.Value / 100f}");
+            DebugUtils.Log("Volume Setter", this.AccessibleName, $"Volume Level {Volume_Slider.Value / 100f}", logLevel: DebugUtils.LogLevel.Info);
         }
 
         /// <summary>
@@ -2579,7 +2066,13 @@ namespace MP3PlayerV2
         /// changes.</remarks>
         /// <param name="sender">The source of the event, typically the playlist <see cref="ListBox"/>.</param>
         /// <param name="e">An <see cref="EventArgs"/> that contains the event data.</param>
-        private void PlayList_SelectedIndexChanged(object sender, EventArgs e) { if (playListBox.SelectedIndex != -1) playListBox.EnsureVisible(playListBox.SelectedIndex); }
+        private void PlayList_SelectedIndexChanged(object sender, EventArgs e) 
+        { 
+            var appState = ApplicationStateService.Instance;
+            var selectedIndex = appState.GetSelectedTrackIndex?.Invoke() ?? -1;
+            if (selectedIndex != -1)
+                appState.EnsureTrackVisible?.Invoke(selectedIndex);
+        }
 
         /// <summary>
         /// Handles key press events for the playlist, enabling keyboard shortcuts for playback control and track
@@ -2602,9 +2095,9 @@ namespace MP3PlayerV2
             //These require the list-box control to be focused to accept these controls
 
             //Not Final Key combos
-            if (e.Control && e.KeyCode == Keys.L) { UserRateTrack(playListBox.SelectedItem.ToString(), "like"); return; }
-            else if (e.Control && e.KeyCode == Keys.D) { UserRateTrack(playListBox.SelectedItem.ToString(), "dislike"); return; }
-            else if (e.Control && e.KeyCode == Keys.N) { UserRateTrack(playListBox.SelectedItem.ToString(), "neutral"); return; }
+            if (e.Control && e.KeyCode == Keys.L) { UserRateTrack("like", (Track)playListBox.SelectedItem, playListBox.SelectedIndex); return; }
+            else if (e.Control && e.KeyCode == Keys.D) { UserRateTrack("dislike", (Track)playListBox.SelectedItem, playListBox.SelectedIndex); return; }
+            else if (e.Control && e.KeyCode == Keys.N) { UserRateTrack("neutral", (Track)playListBox.SelectedItem, playListBox.SelectedIndex); return; }
 
             switch (e.KeyCode)
             {
@@ -2659,12 +2152,16 @@ namespace MP3PlayerV2
         /// <param name="e">The event data containing the old and new indices of the reordered items.</param>
         private void Playlist_Reordered(object sender, BazthalLib.Events.ItemsReorderedEventArgs e)
         {
-            _playlistManager.Reorder(e.OldIndices, e.NewIndices);
+            var listBox = (ThemableListBox)sender;
+
+            _playlistManager.SetOrder(listBox.Items.Cast<Track>());
+
         }
 
         #endregion Listbox
 
-        #region ComboBoxs
+        #region ComboBox
+
 
         /// <summary>
         /// Handles the event when the selected index of the audio device list changes.
@@ -2675,14 +2172,25 @@ namespace MP3PlayerV2
         /// <param name="e">An <see cref="EventArgs"/> that contains the event data.</param>
         private void AudioDeviceList_SelectedIndexChanged(object sender, EventArgs e)
         {
-            DebugUtils.Log("Selected Index Change", "Audio Device List", $"{AudioDeviceList.SelectedIndex}");
-            if (AudioDeviceList.SelectedIndex != -1) //Make sure it's always a valid selection
-                _audioDeviceIDList.SelectedIndex = AudioDeviceList.SelectedIndex;
-            ChangeAudioDevice(_audioDeviceIDList.SelectedItem.ToString());
+            if (_audioDevices.IsRefreshing) return;
+
+            DebugUtils.Log("Selected Index Change", "Audio Device List", 
+                $"{AudioDeviceList.SelectedIndex}", logLevel: DebugUtils.LogLevel.Info);
+            
+            if (AudioDeviceList.SelectedIndex >= 0)
+            {
+                var device = _audioDevices.GetDevice(AudioDeviceList.SelectedIndex);
+                if (device != null)
+                {
+                    _audioDevices.LastSelectedDeviceId = device.DeviceID;
+                    ChangeAudioDevice(device.DeviceID, userChosen: true);
+                }
+            }
         }
+
         private void PlayListOptions_SelectedIndexChanged(object sender, EventArgs e) { }
 
-        #endregion ComboBoxs
+        #endregion ComboBox
 
         #region Timer
 
@@ -2691,7 +2199,7 @@ namespace MP3PlayerV2
         /// necessary.
         /// </summary>
         /// <remarks>This method updates the trackbar position if the slider is not being dragged. If the
-        /// current track has ended and the user has not stopped playback, it advances to the next track.</remarks>
+        /// current track has ended naturally, it advances to the next track.</remarks>
         /// <param name="sender">The source of the event.</param>
         /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         private void PlayTimer_Tick(object sender, EventArgs e)
@@ -2699,14 +2207,14 @@ namespace MP3PlayerV2
             if (!Tracking_Slider.Dragging)
             {
                 UpdateTrackbar();
-                if (_trackEnd && !_userStopped)
+                if (_trackEnd)
                 {
                     if (_userSeeked)
                     { TrackRatingManager.ApplySeekToEnd(_currentTrackModel, _settings.TrackRating); }
                     else
                     { TrackRatingManager.ApplyPlayCompleted(_currentTrackModel, _settings.TrackRating); }
 
-                    TrackDatabase.SaveStats(_currentTrackModel); // May want to move this out of timer to prevent multiple firing
+                    TrackDatabase.SaveStats(_currentTrackModel);
                     NextTrack(true);
                     _trackEnd = false;
                     _userSeeked = false;
@@ -2728,194 +2236,88 @@ namespace MP3PlayerV2
         private void CloseForm(object sender, FormClosingEventArgs e)
         {
             SaveSettings();
-            //If playback is active ask user if they are sure they want to close
-            if (_soundOut?.PlaybackState == PlaybackState.Playing || !_disposed)
+            if (_settings.Application.EnableConfirmClose)
             {
-                if (ThemableMessageBox.Show("Are you sure you want to close", "Close", MessageBoxButtons.YesNo) == DialogResult.No) //If the user said no to close cancel closing else clean up steam and close form
-                { e.Cancel = true; return; }
-                Stop();
-                DisposeCSCore();
-
+                if (_audioPlayback.State == PlaybackState.Playing || !_audioPlayback.IsDisposed)
+                {
+                    if (ThemableMessageBox.Show("Are you sure you want to close", "Close", MessageBoxButtons.YesNo) == DialogResult.No)
+                    { e.Cancel = true; return; }
+                }
             }
+            Stop();
+            _audioPlayback.Dispose();
+            _webSocket.Dispose();
         }
 
         #endregion Form Events
 
         #endregion UI Event Handlers
 
-        #endregion Private Functions
+        #endregion Methods
 
         #region Websocket integration
 
         /// <summary>
-        /// Represents a WebSocket behavior for broadcasting messages to connected clients.
+        /// Starts the WebSocket server using the configured settings.
         /// </summary>
-        /// <remarks>This class extends the <see cref="WebSocketBehavior"/> to provide functionality for sending broadcast
-        /// messages to clients upon connection. It sends a welcome message to the client when the WebSocket connection is
-        /// successfully opened.</remarks>
-        internal class Broadcast : WebSocketBehavior
+        private void StartWebSocketServer()
         {
-            protected override void OnOpen()
+            if (_webSocket.IsRunning)
+                return;
+
+            _webSocket.CommandReceived += (sender, e) =>
             {
-                base.OnOpen();
-                if (this.Context.WebSocket.ReadyState == WebSocketState.Open)
+                HandleCommand(e.Message);
+            };
+
+            _webSocket.Start(
+                _settings.WebSocket.Address,
+                _settings.WebSocket.Port,
+                _settings.WebSocket.EndPoint,
+                onStartError: ex =>
                 {
-
-                    string msg = ($"This is a Broadcast channel stay connected to see what's playing");
-                    Send(JsonSerializer.Serialize(new { Message = msg }, _jsonOption));
-                    DebugUtils.Log("Now Playing - Websocket", "OnOpen", "Sent welcome message to client");
-                }
-                else
-                {
-                    DebugUtils.Log("Now Playing - Websocket", "OnOpen", "Unable to send welcome message");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Represents a WebSocket behavior that processes incoming messages as commands and sends back execution
-        /// results.
-        /// </summary>
-        /// <remarks>The <see cref="CommandExecutor"/> class listens for messages over a WebSocket
-        /// connection. Upon receiving a message, it attempts to handle the message as a command using the <see
-        /// cref="MP3PlayerV2"/> instance. It logs the process and sends a response indicating whether the command was
-        /// executed successfully or failed.</remarks>
-        internal class CommandExecutor : WebSocketBehavior
-        {
-            protected override void OnMessage(MessageEventArgs e)
-            {
-                var form = MP3PlayerV2.Instance;
-                if (form == null) return;
-
-                bool succeeded = form.HandleCommand(e.Data);
-
-                if (succeeded)
-                {
-                    DebugUtils.Log("CommandExecuter - Websocket", "OnMessage", "Received Message: " + e.Data);
-
-                    if (this.Context.WebSocket.ReadyState == WebSocketState.Open)
+                    this.Invoke(() =>
                     {
-                        //          Send(_commandResponse);
-                        DebugUtils.Log("CommandExecuter - Websocket", "OnMessage", "Sent confirmation response message");
-                    }
-                    else
-                    {
-                        DebugUtils.Log("CommandExecuter - Websocket", "OnMessage", "Unable to send message back");
-                    }
-                }
-                else
-                {
-                    DebugUtils.Log("CommandExecuter - Websocket", "OnMessage", "Received Message: " + e.Data);
-                    if (this.Context.WebSocket.ReadyState == WebSocketState.Open)
-                    {
-
-                        //        Send(_commandResponse);
-                        DebugUtils.Log("CommandExecuter - Websocket", "OnMessage", "Sent failure response message");
-                    }
-                    else
-                    {
-                        DebugUtils.Log("CommandExecuter - Websocket", "OnMessage", "Unable to send message back");
-                    }
-                }
-
-                Sessions.Broadcast(_commandResponse);
-            }
+                        _settings.WebSocket.AutoStart = false;
+                        SaveSettings();
+                        
+                        string errorMsg = $"WebSocket Server failed to start - check for another websocket server running with the same details\n\n" +
+                                        $"ws://{_settings.WebSocket.Address}:{_settings.WebSocket.Port}/{_settings.WebSocket.EndPoint}\n\n" +
+                                        $"Auto-Start has been turned off.";
+                        
+                        ThemableMessageBox.Show(errorMsg, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    });
+                });
         }
 
         /// <summary>
-        /// Constructs a JSON response message indicating the result of an operation.
+        /// Stops the WebSocket server.
         /// </summary>
-        /// <param name="success">A boolean value indicating whether the operation was successful. <see langword="true"/> for success;
-        /// otherwise, <see langword="false"/>.</param>
-        /// <param name="message">A descriptive message providing additional information about the operation's result.</param>
-        /// <param name="data">Optional. Additional data to include in the response. Can be <see langword="null"/> if no additional data is
-        /// provided.</param>
-        internal static void BuildResponseMessage(bool success, string message, object data = null)
+        private void StopWebSocketServer()
         {
-            string Result = success ? "Success" : "Fail";
-
-            var msg = new { Result, Message = message, Data = data };
-
-            _commandResponse = JsonSerializer.Serialize(msg, _jsonOption);
+            _webSocket.Stop();
         }
 
         /// <summary>
-        /// Starts the WebSocket server at the specified address and port.
+        /// Starts the WebSocket server (public wrapper for settings form).
         /// </summary>
-        /// <remarks>This method initializes the WebSocket server and adds services for handling WebSocket
-        /// connections. It attempts to start the server and logs the status. If the server fails to start, it disables
-        /// the auto-start server feature and saves the settings. The server will continue running until the application sets
-        /// the running flag to false.</remarks>
-        /// <param name="address">The IP address or hostname where the server will listen for incoming connections.</param>
-        /// <param name="port">The port number on which the server will listen for incoming connections.</param>
-        private void StartServer(string address, string port)
+        public void StartServerThread()
         {
-            string ep;
-            if (_settings.WebSocket.EndPoint.StartsWith('/'))
-            { ep = _settings.WebSocket.EndPoint; }
-            else
-            { ep = $"/{_settings.WebSocket.EndPoint}"; }
-
-            //_server = new WebSocketServer("ws://" + address + ":" + port);
-            _server = new WebSocketServer("ws://" + address + ":" + port);
-            _server.AddWebSocketService<CommandExecutor>(ep);
-            _server.AddWebSocketService<Broadcast>("/nowplaying");
-            DebugUtils.Log("Websocket", "Add Service", $"{ep}");
-            DebugUtils.Log("Websocket", "Add Service", $"/nowplaying");
-
-            try
-            {
-                _server.Start();
-            }
-            catch
-            {
-                _running = false;
-                DebugUtils.Log("WebSocket Server", "Start", $"Unable to start Websocket server ws://{address}:{port}{ep} - Turning of Auto-Start");
-                _autoStart = false;
-                SaveSettings();
-                ThemableMessageBox.Show($"WebSocket Server failed to start - check for another websocket sever running with the same details \n\n ws://{address}:{port}{ep} \n\n Auto-Start has been turned off.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-
-            }
-            if (_server.IsListening)
-            {
-                DebugUtils.Log("Websocket", "Start", "Server Started with " + "ws://" + address + ":" + port);
-            }
-            while (_running)
-            {
-                Thread.Sleep(100); // Keep the thread alive
-            }
-
-            DebugUtils.Log("WebSocket Server", "Stop", "Web Socket Server has stopped");
-            _server.Stop();
-
+            StartWebSocketServer();
         }
 
         /// <summary>
-        /// Starts a new background thread to run the server if it is not already running.
+        /// Stops the WebSocket server (public wrapper for settings form).
         /// </summary>
-        /// <remarks>This method initializes and starts a server thread using the specified WebSocket
-        /// address and port. The server runs in the background, allowing the main application to continue
-        /// executing.</remarks>
-        internal void StartServerThread()
+        public void StopServerThread()
         {
-            if (_running) return;
-            _serverThread = new Thread(() => StartServer(_settings.WebSocket.Address, _settings.WebSocket.Port.ToString())) { IsBackground = true };
-            //_serverThread = new Thread(() => StartServer(_webSocketAddress, _webSocketPort.ToString())) { IsBackground = true };
-            _serverThread.Start();
-            _running = true;
+            StopWebSocketServer();
         }
 
         /// <summary>
-        /// Stops the server thread and releases associated resources.
+        /// Gets the WebSocket server running status.
         /// </summary>
-        /// <remarks>This method sets the running state to false, waits for the server thread to
-        /// terminate,  and stops the server. Ensure that the server is running before calling this method.</remarks>
-        internal void StopServerThread()
-        {
-            _running = false;
-            _serverThread?.Join(); // Wait for the thread to exit
-            _server?.Stop();
-        }
+        public bool GetWssStatus => _webSocket.IsRunning;
 
         /// <summary>
         /// Processes a command message and executes the corresponding actions within the application context.
@@ -2928,59 +2330,29 @@ namespace MP3PlayerV2
         /// langword="false"/>.</returns>
         internal bool HandleCommand(string message)
         {
-            var context = new CommandContext
-            {
-                Invoke = action => this.Invoke(action),
-                Respond = BuildResponseMessage,
-                GetPlaylistCount = () => _playlistManager.Count,
-                Play = Play,
-                Pause = Pause,
-                Stop = Stop,
-                Next = (automatic) => NextTrack(automatic),
-                Previous = PreviousTrack,
-                GetVolumeLevel = _volumeLevel,
-                Volume = SetVolume,
+            var appState = ApplicationStateService.Instance;
+            appState.CurrentTrack = _currentTrackModel;
+            appState.CurrentTrackFilePath = _currentTrackFilePath;
+            appState.VolumeLevel = _volumeLevel;
+            appState.SmartShuffleMode = _smartShuffleMode;
 
-                Shuffle = ShufflePlaylist,
-                CountByName = CountTrackByName,
-                CountByPlayData = (playdata) => CountTrackByPlayData(playdata),
+            var context = CommandContextFactory.Create();
 
-                GetAudioDeviceCount = () => AudioDeviceList.Items.Count,
-                GetAudioDeviceNameAt = i => AudioDeviceList.Items[i]?.ToString() ?? string.Empty,
-                SetAudioDeviceIndex = i => AudioDeviceList.SelectedIndex = i,
-                GetSelectedAudioDevice = () => AudioDeviceList.SelectedItem?.ToString() ?? "Unknown",
-
-                GetPlaylistModeCount = () => playList_Options.Items.Count,
-                GetPlaylistModeNameAt = i => playList_Options.Items[i]?.ToString() ?? "",
-                SetPlaylistModeIndex = i => playList_Options.SelectedIndex = i,
-                GetSelectedPlaylistMode = () => playList_Options.SelectedItem?.ToString() ?? "",
-
-                SelectTrackByIndex = i => playListBox.SelectedIndex = i,
-                SelectTrackByName = name => SelectTrackByName(name),
-                GetSelectedTrackName = () => playListBox.SelectedItem?.ToString() ?? "Unknown",
-                SelectRandomTrack = () => GetRandomTrack(),
-
-                IsPlaylistEmpty = () => _playlistManager.Count == 0,
-                GetPlaylistTracks = () => _playlistManager.Tracks,
-                NormalizeText = s => NormalizeText(s),
-
-                GetPlaybackState = () => _soundOut?.PlaybackState ?? PlaybackState.Stopped,
-                GetCurrentTrack = Cur_Track_Label.Text,
-
-                BuildSearchRegex = BuildSearchRegex,
-                SortPlaylist = (selector, desc) => SortPlaylist(selector, desc),
-                QueueTrackByName = name => QueueTrackByName(name),
-                GetQueuedTracks = new Queue<string>(_trackQueue),
-                ClearQueue = _trackQueue.Clear,
-                ResetStat = async (range, stat) => await ResetTrackStatsAdaptiveAsync(range, stat),
-
-            };
+            context.Play = track => Play(track);
+            context.Pause = Pause;
+            context.Stop = Stop;
+            context.Next = automatic => NextTrack(automatic);
+            context.Previous = PreviousTrack;
+            context.Shuffle = ShufflePlaylist;
+            context.SortPlaylist = (field, desc) => SortPlaylist(field, desc);
+            context.ResetStat = async (range, stat) => await ResetTrackStatsAdaptiveAsync(range, stat);
+            context.ListRegisteredCommands = _dispatcher.ListRegisteredCommands;
+            context.GetMetaData = _dispatcher.GetMetaData;
 
             return _dispatcher.Dispatch(message, context, _caseInsensitiveOptions);
         }
 
         #endregion Websocket integration
-
     }
 
 }

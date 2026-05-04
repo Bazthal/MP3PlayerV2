@@ -103,6 +103,7 @@
             btn_Apply = new BazthalLib.Controls.ThemableButton();
             tabControlHeader = new BazthalLib.Controls.ThemableTabControlHeader();
             btn_ResetToDefault = new BazthalLib.Controls.ThemableButton();
+            btn_MergeDupes = new BazthalLib.Controls.ThemableButton();
             gb_WebSocketServer.SuspendLayout();
             tabControlBase.SuspendLayout();
             tabPage_Theme_Websocket.SuspendLayout();
@@ -674,6 +675,7 @@
             // 
             // gb_Database
             // 
+            gb_Database.Controls.Add(btn_MergeDupes);
             gb_Database.Controls.Add(btn_Prune);
             gb_Database.Controls.Add(lbl_PruneDays);
             gb_Database.Controls.Add(btn_ImportDB);
@@ -683,7 +685,7 @@
             gb_Database.Controls.Add(chk_EnablePrune);
             gb_Database.Location = new Point(6, 6);
             gb_Database.Name = "gb_Database";
-            gb_Database.Size = new Size(261, 155);
+            gb_Database.Size = new Size(261, 178);
             gb_Database.TabIndex = 1;
             gb_Database.TabStop = false;
             gb_Database.Text = "Database Management";
@@ -961,6 +963,17 @@
             btn_ResetToDefault.UseVisualStyleBackColor = true;
             btn_ResetToDefault.Click += ResetButton_Click;
             // 
+            // btn_MergeDupes
+            // 
+            btn_MergeDupes.FlatAppearance.BorderSize = 0;
+            btn_MergeDupes.Location = new Point(6, 144);
+            btn_MergeDupes.Name = "btn_MergeDupes";
+            btn_MergeDupes.Size = new Size(109, 23);
+            btn_MergeDupes.TabIndex = 14;
+            btn_MergeDupes.Text = "Merge Dupelicates";
+            btn_MergeDupes.UseVisualStyleBackColor = true;
+            btn_MergeDupes.Click += MergeDupes_Click;
+            // 
             // SettingsForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
@@ -1033,11 +1046,6 @@
         private BazthalLib.Controls.ThemableButton btn_ImportDB;
         private TabPage tabPage_TrackRating;
         private BazthalLib.Controls.ThemableLabel lbl_PruneDays;
-        private BazthalLib.Controls.ThemableTrackBar themableTrackBar5;
-        private BazthalLib.Controls.ThemableTextBox themableTextBox5;
-        private BazthalLib.Controls.ThemableComboBox themableComboBox1;
-        private BazthalLib.Controls.ThemableCheckBox themableCheckBox3;
-        private BazthalLib.Controls.ThemableGroupBox themableGroupBox2;
         private BazthalLib.Controls.ThemableLabel lbl_UserRated;
         private BazthalLib.Controls.ThemableLabel lbl_Skipped;
         private BazthalLib.Controls.ThemableLabel lbl_Played;
@@ -1082,5 +1090,6 @@
         private BazthalLib.Controls.ThemableNumericUpDown nud_MidSkip;
         private BazthalLib.Controls.ThemableNumericUpDown nud_EarlySkip;
         private BazthalLib.Controls.ThemableButton btn_ResetToDefault;
+        private BazthalLib.Controls.ThemableButton btn_MergeDupes;
     }
 }
