@@ -2346,6 +2346,7 @@ namespace MP3PlayerV2
             context.Shuffle = ShufflePlaylist;
             context.SortPlaylist = (field, desc) => SortPlaylist(field, desc);
             context.ResetStat = async (range, stat) => await ResetTrackStatsAdaptiveAsync(range, stat);
+            context.SeekTo = seconds => SeekTo(seconds);
             context.ListRegisteredCommands = _dispatcher.ListRegisteredCommands;
             context.GetMetaData = _dispatcher.GetMetaData;
 

@@ -68,6 +68,16 @@ namespace MP3PlayerV2.Models
 
         #endregion Volume
 
+        #region Position
+
+        public Func<double> GetPosition { get; set; } = () => 0.0;
+
+        public Func<double> GetDuration { get; set; } = () => 0.0;
+
+        public Action<double> SeekTo { get; set; } = _ => { };
+
+        #endregion Position
+
         #region Playlist
 
         public Func<int> GetPlaylistCount { get; set; } = () => 0;

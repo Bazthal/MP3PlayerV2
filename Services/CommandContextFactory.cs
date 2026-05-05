@@ -85,9 +85,25 @@ namespace MP3PlayerV2.Services
                 {
                     state.VolumeLevel = vol;
                     state.AudioPlayback.VolumeLevel = vol;
+                    state.SetVolumeSliderValue?.Invoke(vol);
                 },
 
                 #endregion Volume
+
+                #region Position
+
+                GetPosition = () => state.AudioPlayback.IsDisposed ? 0.0 : state.AudioPlayback.Position.TotalSeconds,
+                GetDuration = () => state.AudioPlayback.IsDisposed ? 0.0 : state.AudioPlayback.Duration.TotalSeconds,
+                SeekTo = seconds =>
+                {
+                    if (!state.AudioPlayback.IsDisposed && state.AudioPlayback.CanSeek)
+                    {
+                        state.AudioPlayback.SeekTo(seconds);
+                        state.SetTrackingSliderValue?.Invoke((int)seconds);
+                    }
+                },
+
+                #endregion Position
 
                 #region Playlist
 

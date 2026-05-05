@@ -28,6 +28,7 @@
 
 ## Command System
 - Added `HighlightCommand` to select and highlight tracks in the playlist without starting playback.
+- Added `SeekCommand` to query or set playback position with UI tracking slider synchronization.
 - Added `CommandInfo` record to encapsulate command metadata.
 - Introduced `CommandArgumentParser` for flexible argument handling.
 - Replaced single `LoadHandlers` with split methods to support dynamic DLL loading and unloading.
@@ -35,7 +36,7 @@
 - Added `CommandList` command to display all registered commands.
 - Added `AboutCommand` to show detailed metadata for specific or all commands.
 - Renamed `Commands.System` namespace to `Commands.Core` to avoid .NET conflicts.
-- NowPlayingCommand now includes the current track's index in the playlist for better context.
+- NowPlayingCommand now includes the current track's index in the playlist for better context
 
 ## Playlist & Track Management
 - New playlists generated from play-data categories: `Liked`, `Unplayed`, and `Most Played`.
