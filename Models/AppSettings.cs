@@ -149,6 +149,8 @@
         public bool AllowMultipleInstances { get; set; } = false;
         public bool AutoPlayOnFileAssocLaunch { get; set; } = true;
         public bool EnableConfirmClose { get; set; } = true;
+        public Size PlayerSize { get; set; } = new(379, 488); //Minium size for default size
+        public Point PlayerLocation { get; set; } = new(0,0); //Default to the top left of primary monitor
     }
 
     /// <summary>

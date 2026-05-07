@@ -71,6 +71,7 @@
 - Added option to disable automatic playback on file association launch.
 
 ## User Interface & Experience
+- Added Location and size settings to remember last used location.
 - Added confirmation message to prevent accidental settings reset.
 - Right-click album art to save images with default naming {artist}_{album}.
 - Added toggle for Close confirmation dialog.

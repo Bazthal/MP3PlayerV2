@@ -170,6 +170,9 @@ namespace MP3PlayerV2
                 bool autoPlay = _settings.Application.AutoPlayOnFileAssocLaunch;
                 HandleDroppedFiles(args, autoPlay);
             }
+            //Allows the user to keep the size and location of player between launches
+            this.Size = _settings.Application.PlayerSize;
+            this.Location = _settings.Application.PlayerLocation;
         }
 
         #endregion Contructor
@@ -195,12 +198,12 @@ namespace MP3PlayerV2
             if (e.ReachedEnd)
             {
                 _trackEnd = true;
-                DebugUtils.Log("AudioPlaybackService", "TrackEnded", 
+                DebugUtils.Log("AudioPlaybackService", "TrackEnded",
                     $"Track reached end naturally", logLevel: DebugUtils.LogLevel.Info);
             }
             else
             {
-                DebugUtils.Log("AudioPlaybackService", "TrackEnded", 
+                DebugUtils.Log("AudioPlaybackService", "TrackEnded",
                     $"Track stopped by user", logLevel: DebugUtils.LogLevel.Info);
             }
         }
@@ -252,7 +255,7 @@ namespace MP3PlayerV2
             if (_audioPlayback.State == PlaybackState.Paused)
             {
                 _audioPlayback.Play();
-                var currentTrackText = appState.SetCurrentTrackLabel != null ? 
+                var currentTrackText = appState.SetCurrentTrackLabel != null ?
                     string.Empty : Cur_Track_Label.Text;
                 appState.SetFormTitle?.Invoke($"MP3 Player - {currentTrackText}");
                 DebugUtils.Log("Play", "Pause-Resumed", $"{currentTrackText}", logLevel: DebugUtils.LogLevel.Info);
@@ -261,22 +264,22 @@ namespace MP3PlayerV2
 
             if (_audioPlayback.State == PlaybackState.Playing)
             {
-                var currentTrackText = appState.SetCurrentTrackLabel != null ? 
+                var currentTrackText = appState.SetCurrentTrackLabel != null ?
                     string.Empty : Cur_Track_Label.Text;
                 var selectedTrackIndex = appState.GetSelectedTrackIndex?.Invoke() ?? -1;
                 var selectedItem = selectedTrackIndex >= 0 ? playListBox.SelectedItem : null;
 
-                if (string.IsNullOrWhiteSpace(currentTrackText) || 
+                if (string.IsNullOrWhiteSpace(currentTrackText) ||
                     (selectedItem != null && !currentTrackText.Contains(selectedItem.ToString())))
                 {
                     Stop();
-                    DebugUtils.Log("No Track Match", "Play", 
-                        $"Match Not Found: {currentTrackText} is not {selectedItem?.ToString()}", 
+                    DebugUtils.Log("No Track Match", "Play",
+                        $"Match Not Found: {currentTrackText} is not {selectedItem?.ToString()}",
                         logLevel: DebugUtils.LogLevel.Info);
                 }
                 else
                 {
-                    DebugUtils.Log("Track Match", "Play", $"Match Found: {currentTrackText}", 
+                    DebugUtils.Log("Track Match", "Play", $"Match Found: {currentTrackText}",
                         logLevel: DebugUtils.LogLevel.Info);
                     return;
                 }
@@ -335,23 +338,23 @@ namespace MP3PlayerV2
             {
                 TrackDatabase.SaveStats(track);
             }
-            catch (Exception ex) 
-            { 
-                DebugUtils.Log("Play", "Save Stats", $"Saving to data base error: {ex.Message}", 
-                    logLevel: DebugUtils.LogLevel.Error); 
+            catch (Exception ex)
+            {
+                DebugUtils.Log("Play", "Save Stats", $"Saving to data base error: {ex.Message}",
+                    logLevel: DebugUtils.LogLevel.Error);
             }
 
-            DebugUtils.Log("Play", appState.SetFormTitle != null ? "Title Set" : Text, 
-                $"Current Track: {_currentTrackFilePath}", 
+            DebugUtils.Log("Play", appState.SetFormTitle != null ? "Title Set" : Text,
+                $"Current Track: {_currentTrackFilePath}",
                 logLevel: DebugUtils.LogLevel.Info);
-            DebugUtils.Log("Tracking", "Play", $"{_audioPlayback.Duration}", 
+            DebugUtils.Log("Tracking", "Play", $"{_audioPlayback.Duration}",
                 logLevel: DebugUtils.LogLevel.Info);
 
-            if (!_webSocket.IsRunning) 
-            { 
-                DebugUtils.Log("Play", "WebSocket", "Websocket isn't running no broadcast sent", 
-                    logLevel: DebugUtils.LogLevel.Info); 
-                return; 
+            if (!_webSocket.IsRunning)
+            {
+                DebugUtils.Log("Play", "WebSocket", "Websocket isn't running no broadcast sent",
+                    logLevel: DebugUtils.LogLevel.Info);
+                return;
             }
 
             var nowPlayingInfo = new { NowPlaying = track.ToString(), track.PlayCount, PlaylistIndex = _playlistManager.IndexOf(track), track.LastPlayed, LocalTime = dispTime, PlayedPreviously = previouslyPlayed };
@@ -368,7 +371,7 @@ namespace MP3PlayerV2
         {
             var appState = ApplicationStateService.Instance;
             var currentTrackText = appState.SetCurrentTrackLabel != null ?
-                Cur_Track_Label.Text : string.Empty ;
+                Cur_Track_Label.Text : string.Empty;
 
             if (_audioPlayback.State == PlaybackState.Paused)
             {
@@ -929,7 +932,7 @@ namespace MP3PlayerV2
             if (e.SuggestedIndex >= 0 && e.SuggestedIndex < AudioDeviceList.Items.Count)
             {
                 AudioDeviceList.SelectedIndex = e.SuggestedIndex;
-                
+
                 var device = _audioDevices.GetDevice(e.SuggestedIndex);
                 if (device != null)
                 {
@@ -937,8 +940,8 @@ namespace MP3PlayerV2
                 }
             }
 
-            BazthalLib.DebugUtils.Log("AudioDeviceService", "DevicesChanged", 
-                $"Device list updated. Selected index: {e.SuggestedIndex}", 
+            BazthalLib.DebugUtils.Log("AudioDeviceService", "DevicesChanged",
+                $"Device list updated. Selected index: {e.SuggestedIndex}",
                 logLevel: BazthalLib.DebugUtils.LogLevel.Info);
         }
 
@@ -972,10 +975,10 @@ namespace MP3PlayerV2
         {
             // Don't go through the process of setting up new device if there is no stream
             if (_audioPlayback.IsDisposed) { return; }
-            
+
             var wasPlaying = _audioPlayback.State == PlaybackState.Playing;
             var model = _currentTrackModel;
-            
+
             if (userChosen)
             {
                 int deviceIndex = _audioDevices.FindDeviceIndex(deviceId);
@@ -984,11 +987,11 @@ namespace MP3PlayerV2
                     _audioDevices.MarkDeviceAsUserSelected(deviceIndex);
                 }
             }
-            
+
             if (_audioPlayback.ChangeDevice(deviceId, true, _currentTrackFilePath))
             {
                 _currentTrackModel = model;
-                
+
                 if (wasPlaying)
                 {
                     StartPlaybackTimer();
@@ -1244,7 +1247,7 @@ namespace MP3PlayerV2
             var shuffled = _playlistOps.ShuffleTracks(_playlistManager.Tracks);
             _playlistManager.Clear();
             _playlistManager.AddRange(shuffled);
-            
+
             // Restore original selection
             int index = 0;
             if (_currentTrackModel != null)
@@ -1265,10 +1268,10 @@ namespace MP3PlayerV2
         private void SortPlaylist(string sortField, bool descending = false)
         {
             var sorted = _playlistOps.SortTracks(_playlistManager.Tracks, sortField, descending);
-            
+
             if (sorted == null)
             {
-                DebugUtils.Log("Sort Playlist", "SortPlaylist", 
+                DebugUtils.Log("Sort Playlist", "SortPlaylist",
                     $"Invalid sort field: {sortField}", logLevel: DebugUtils.LogLevel.Warning);
                 return;
             }
@@ -1351,7 +1354,7 @@ namespace MP3PlayerV2
             if (index >= 0)
             {
                 if (_currentTrackModel != null && _currentTrackModel.Equals(_playlistManager.Get(index)))
-               // if (!string.IsNullOrWhiteSpace(Cur_Track_Label.Text) && Cur_Track_Label.Text.Contains(playListBox.SelectedItem.ToString()))
+                // if (!string.IsNullOrWhiteSpace(Cur_Track_Label.Text) && Cur_Track_Label.Text.Contains(playListBox.SelectedItem.ToString()))
                 {
                     _audioPlayback.Dispose();
                     ResetUI();
@@ -1522,11 +1525,11 @@ namespace MP3PlayerV2
             string modeText = mode.ToString().Replace("_", " ");
             var filteredList = _playlistOps.GenerateSmartPlaylist(trackList, mode);
 
-            if (filteredList.Count <= 0) 
-            { 
-                ThemableMessageBox.Show($"No tracks match the chosen filter: {{{modeText}}}", 
-                    "Generation Failed", MessageBoxButtons.OK, autoCloseMilliseconds: 3000, MessageBoxIcon.Asterisk); 
-                return; 
+            if (filteredList.Count <= 0)
+            {
+                ThemableMessageBox.Show($"No tracks match the chosen filter: {{{modeText}}}",
+                    "Generation Failed", MessageBoxButtons.OK, autoCloseMilliseconds: 3000, MessageBoxIcon.Asterisk);
+                return;
             }
 
             var total = _playlistOps.CalculateTotalDuration(filteredList);
@@ -1538,7 +1541,7 @@ namespace MP3PlayerV2
                 $"Duration: {durationText}\n\n" +
                 "Choose an action:";
 
-            var result = ThemableMessageBox.Show($"{msg}", "Playlist Generated", 
+            var result = ThemableMessageBox.Show($"{msg}", "Playlist Generated",
                 [("&Load", DialogResult.OK), ("&Save", DialogResult.Continue), ("&Close", DialogResult.Cancel)]);
 
             switch (result)
@@ -1626,14 +1629,14 @@ namespace MP3PlayerV2
         {
             //Playback Settings
             _volumeLevel = _settings.Playback.VolumeLvl;
-            
+
             // Find and select the saved audio device
             int deviceIndex = _audioDevices.FindDeviceByName(_settings.Playback.AudioDevice);
             if (deviceIndex >= 0)
             {
                 AudioDeviceList.SelectedIndex = deviceIndex;
             }
-            
+
             playList_Options.SelectedItem = _settings.Playback.PlayListMode;
             _trackNavigation.MaxHistorySize = Math.Min(_settings.Playback.MaxTrackHistory, 9999);
 
@@ -1697,6 +1700,9 @@ namespace MP3PlayerV2
             _settings.TrackRating.LeadInImmunitySeconds = _leadInImmunity;
             _settings.TrackRating.LeadOutImmunitySeconds = _leadOutImmunity;
 
+            _settings.Application.PlayerSize = this.Size;
+
+            _settings.Application.PlayerLocation = this.Location;
             // New Settings Here
 
             ConfigManager.Save();
@@ -2009,8 +2015,8 @@ namespace MP3PlayerV2
 
             var total = _playlistOps.CalculateTotalDuration(playlist);
             string durationText = $"{(int)total.TotalHours:D2}:{total.Minutes:D2}:{total.Seconds:D2}";
-            
-            ThemableMessageBox.Show($"Current playlist has {playlist.Count} track(s).\nTotal duration: {durationText}", 
+
+            ThemableMessageBox.Show($"Current playlist has {playlist.Count} track(s).\nTotal duration: {durationText}",
                 "Playlist Duration", MessageBoxButtons.OK, autoCloseMilliseconds: 10000);
         }
 
@@ -2066,8 +2072,8 @@ namespace MP3PlayerV2
         /// changes.</remarks>
         /// <param name="sender">The source of the event, typically the playlist <see cref="ListBox"/>.</param>
         /// <param name="e">An <see cref="EventArgs"/> that contains the event data.</param>
-        private void PlayList_SelectedIndexChanged(object sender, EventArgs e) 
-        { 
+        private void PlayList_SelectedIndexChanged(object sender, EventArgs e)
+        {
             var appState = ApplicationStateService.Instance;
             var selectedIndex = appState.GetSelectedTrackIndex?.Invoke() ?? -1;
             if (selectedIndex != -1)
@@ -2174,9 +2180,9 @@ namespace MP3PlayerV2
         {
             if (_audioDevices.IsRefreshing) return;
 
-            DebugUtils.Log("Selected Index Change", "Audio Device List", 
+            DebugUtils.Log("Selected Index Change", "Audio Device List",
                 $"{AudioDeviceList.SelectedIndex}", logLevel: DebugUtils.LogLevel.Info);
-            
+
             if (AudioDeviceList.SelectedIndex >= 0)
             {
                 var device = _audioDevices.GetDevice(AudioDeviceList.SelectedIndex);
@@ -2280,11 +2286,11 @@ namespace MP3PlayerV2
                     {
                         _settings.WebSocket.AutoStart = false;
                         SaveSettings();
-                        
+
                         string errorMsg = $"WebSocket Server failed to start - check for another websocket server running with the same details\n\n" +
                                         $"ws://{_settings.WebSocket.Address}:{_settings.WebSocket.Port}/{_settings.WebSocket.EndPoint}\n\n" +
                                         $"Auto-Start has been turned off.";
-                        
+
                         ThemableMessageBox.Show(errorMsg, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     });
                 });
