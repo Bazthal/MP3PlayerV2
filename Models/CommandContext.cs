@@ -94,6 +94,14 @@ namespace MP3PlayerV2.Models
 
         public Func<string> GetSelectedPlaylistMode { get; set; } = () => "Unknown";
 
+        public Func<int> GetShuffleModeCount { get; set; } = () => 0;
+
+        public Action<string> SetShuffleMode { get; set; } = _ => { };
+
+        public Func<int, string> GetShuffleModeNameAt { get; set; } = _ => string.Empty;
+
+        public Func<string> GetSelectedShuffleMode { get; set; } = () => "UnplayedFirst";
+
         public Action<string, bool> SortPlaylist { get; set; } = (_, _) => { };
 
         public Func<Track, int> GetPlaylistIndex { get; set; } = _ => -1;

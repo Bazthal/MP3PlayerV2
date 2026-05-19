@@ -84,7 +84,7 @@ namespace MP3PlayerV2
 
         #endregion Fields
 
-        #region Contructor
+        #region Constructor
 
         /// <summary>
         /// Initializes a new instance of the <see cref="MP3PlayerV2"/> class.
@@ -116,6 +116,7 @@ namespace MP3PlayerV2
             appState.SetSelectedAudioDeviceIndex = i => AudioDeviceList.SelectedIndex = i;
             appState.GetSelectedPlaylistOptionIndex = () => playList_Options.SelectedIndex;
             appState.SetSelectedPlaylistOptionIndex = i => playList_Options.SelectedIndex = i;
+            appState.GetSelectedShuffleMode = () => _settings.SmartShuffle.Mode;
             appState.GetSelectedTrackIndex = () => playListBox.SelectedIndex;
             appState.SetSelectedTrackIndex = i => playListBox.SelectedIndex = i;
             appState.SetCurrentTrackLabel = text => Cur_Track_Label.Text = text;
@@ -171,11 +172,19 @@ namespace MP3PlayerV2
                 HandleDroppedFiles(args, autoPlay);
             }
             //Allows the user to keep the size and location of player between launches
-            this.Size = _settings.Application.PlayerSize;
-            this.Location = _settings.Application.PlayerLocation;
+            if (_settings.Application.RestoreSizeAndPosition)
+            {
+                this.Size = _settings.Application.PlayerSize;
+                this.Location = _settings.Application.PlayerLocation;
+            }
+            else
+            { this.StartPosition = FormStartPosition.WindowsDefaultLocation; }
+
+            if (_settings.Application.AutoOpenLastPlaylist == true && _settings.Application.LastPlaylistOpened != string.Empty ) 
+            { LoadPlaylist(_settings.Application.LastPlaylistOpened); }
         }
 
-        #endregion Contructor
+        #endregion Constructor
 
         #region Methods
 
@@ -1001,84 +1010,7 @@ namespace MP3PlayerV2
 
         #endregion Device Management
 
-        #region Command Helpers
-
-        /*
-
-        /// <summary>
-        /// Counts the number of tracks in the playlist that match the specified play data filter.
-        /// </summary>
-        /// <param name="data">The filter type (unplayed, liked, disliked, neutral).</param>
-        private void CountTrackByPlayData(string data)
-        {
-            var matches = _trackSearch.FindTracksByPlayData(_playlistManager.Tracks, data);
-            BuildResponse(true, $"{matches.Count} {data} track(s) found in the playlist", _includeData ? matches : null);
-        }
-
-        /// <summary>
-        /// Searches the playlist for tracks whose names match the specified search term.
-        /// </summary>
-        /// <param name="searchTerm">The term to search for in track names.</param>
-        private void CountTrackByName(string searchTerm)
-        {
-            var matches = _trackSearch.FindTracksByName(_playlistManager.Tracks, searchTerm);
-
-            if (matches.Count > 0)
-                BuildResponse(true, $"{matches.Count} matching item(s) found in the playlist for: {searchTerm}", _includeData ? matches : null);
-            else
-                BuildResponse(false, "No matching item found in the playlist");
-        }
-
-        /// <summary>
-        /// Selects a track from the playlist based on the specified search term.
-        /// </summary>
-        /// <param name="searchTerm">The term used to search for a matching track.</param>
-        private void SelectTrackByName(string searchTerm)
-        {
-            var bestMatch = _trackSearch.FindBestMatch(_playlistManager.Tracks, searchTerm);
-
-            if (bestMatch != null)
-            {
-                int index = _playlistManager.IndexOf(bestMatch);
-                playListBox.SelectedIndex = index;
-                BuildResponse(true, $"Match found: {bestMatch}");
-                Stop();
-                Play();
-                return;
-            }
-
-            BuildResponse(false, "No matching item found in the playlist");
-        }
-        
-        /// <summary>
-        /// Searches for a track in the playlist by name and adds the best match to the queue.
-        /// </summary>
-        /// <param name="searchTerm">The search term used to find a matching track.</param>
-        private void QueueTrackByName(string searchTerm)
-        {
-            var bestMatch = _trackSearch.FindBestMatch(_playlistManager.Tracks, searchTerm);
-
-            if (bestMatch != null)
-            {
-                _trackNavigation.EnqueueTrack(bestMatch.ToString());
-                BuildResponse(true, $"Added {bestMatch} to the Queue");
-                return;
-            }
-
-            BuildResponse(false, "No matching item found in the playlist");
-        }
-        
-        /// <summary>
-        /// Builds a WebSocket response message (wrapper for service method).
-        /// </summary>
-        private void BuildResponse(bool success, string message, object? data = null)
-        {
-            _webSocket.BuildResponse(success, message, data);
-        }
-        */
-        #endregion Command Helplers
-
-        #region Helper Methods
+       #region Helper Methods
 
         /// <summary>
         /// Resets the user interface text to its default state.
@@ -1286,7 +1218,7 @@ namespace MP3PlayerV2
         /// select files.
         /// </summary>
         /// <remarks>This method displays a progress dialog while processing the files and updates the
-        /// playlist upon completion.  If the operation is canceled or an error occurs, the dialog will display an
+        /// playlist upon completion.  If the operation is cancelled or an error occurs, the dialog will display an
         /// appropriate message.</remarks>
         /// <param name="droppedItems">An optional array of file paths representing the audio files to add. If <see langword="null"/> or empty, the
         /// user will be prompted to select files.</param>
@@ -1414,7 +1346,7 @@ namespace MP3PlayerV2
         /// Loads a playlist from the specified file or prompts the user to select a playlist file.
         /// </summary>
         /// <remarks>This method displays a progress dialog while the playlist is being loaded. If the
-        /// operation is canceled, the dialog will indicate the cancellation. The method ensures that a valid playlist
+        /// operation is cancelled, the dialog will indicate the cancellation. The method ensures that a valid playlist
         /// is loaded and updates the playlist display accordingly.</remarks>
         /// <param name="droppedItem">The path to the playlist file to load. If <see langword="null"/> or empty, the user will be prompted to
         /// select a file.</param>
@@ -1501,7 +1433,7 @@ namespace MP3PlayerV2
                 }
             }
 
-
+            _settings.Application.LastPlaylistOpened = loadFileName;
             dialog.SetCompleted("Playlist loaded.");
             dialog.CloseAfter(1000);
         }
@@ -1514,7 +1446,7 @@ namespace MP3PlayerV2
         /// no playlist is generated. Otherwise, the user is prompted to choose an action: load the playlist,  save it
         /// to a file, or close without taking action.</remarks>
         /// <param name="mode">The <see cref="SmartShuffleMode"/> to use for filtering and ordering the playlist.  Determines the criteria
-        /// for selecting tracks (e.g., unplayed tracks, most played tracks, etc.).</param>
+        /// for selecting tracks (e.g., un-played tracks, most played tracks, etc.).</param>
         /// <param name="tracks">A collection of <see cref="Track"/> objects to be considered for playlist generation.  The collection must
         /// not be empty.</param>
         private void GeneratePlayList(SmartShuffleMode mode, IEnumerable<Track> tracks)

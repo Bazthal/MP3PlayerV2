@@ -134,6 +134,24 @@ namespace MP3PlayerV2.Services
                     }
                     return "Unknown";
                 },
+                GetShuffleModeCount = () => Enum.GetValues(typeof(SmartShuffleMode)).Length,
+                GetShuffleModeNameAt = i =>
+                {
+                    var values = Enum.GetValues(typeof(SmartShuffleMode));
+                    if (i >= 0 && i < values.Length)
+                    {
+                        return ((SmartShuffleMode)values.GetValue(i)!).ToString();
+                    }
+                    return string.Empty;
+
+                },
+                SetShuffleMode = mode => {
+                    state.Settings.SmartShuffle.Mode = mode;
+                },
+                GetSelectedShuffleMode = () => 
+                {
+                    return state.GetSelectedShuffleMode!() ?? "Unknown";
+                },
                 SortPlaylist = (field, desc) =>
                 {
                     state.InvokeOnUI?.Invoke(() => { });

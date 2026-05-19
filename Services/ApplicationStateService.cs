@@ -76,6 +76,11 @@ namespace MP3PlayerV2.Services
         public Action<int>? SetSelectedPlaylistOptionIndex { get; set; }
 
         /// <summary>
+        /// Gets or sets a delegate that returns the currently selected shuffle mode.
+        /// </summary>
+        public Func<string>? GetSelectedShuffleMode { get; set; }
+
+        /// <summary>
         /// Gets the selected track index from the UI.
         /// </summary>
         public Func<int>? GetSelectedTrackIndex { get; set; }

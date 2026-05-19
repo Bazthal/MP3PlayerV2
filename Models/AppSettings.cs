@@ -8,7 +8,7 @@
     /// property  corresponds to a specific feature or module within the application.</remarks>
     public class AppSettings
     {
-        public int ConfigVersion { get; set; } = 1;
+        public int ConfigVersion { get; set; } = 2;
         public PlaybackSettings Playback { get; set; } = new();
         public PlayDataSettings PlayData { get; set; } = new();
         public WebSocketSettings WebSocket { get; set; } = new();
@@ -149,8 +149,11 @@
         public bool AllowMultipleInstances { get; set; } = false;
         public bool AutoPlayOnFileAssocLaunch { get; set; } = true;
         public bool EnableConfirmClose { get; set; } = true;
-        public Size PlayerSize { get; set; } = new(379, 488); //Minium size for default size
+        public bool RestoreSizeAndPosition { get; set; } = true;
+        public Size PlayerSize { get; set; } = new(379, 488); //Minimum size for default size
         public Point PlayerLocation { get; set; } = new(0,0); //Default to the top left of primary monitor
+        public string LastPlaylistOpened { get; set; } = string.Empty;
+        public bool AutoOpenLastPlaylist { get; set; } = false;
     }
 
     /// <summary>

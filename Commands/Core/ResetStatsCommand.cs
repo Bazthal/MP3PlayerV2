@@ -33,8 +33,6 @@ namespace MP3PlayerV2.Commands.Core
         /// <returns>
         /// <c>true</c> if the statistic was successfully reset; otherwise, <c>false</c>.
         /// </returns>
-
-        private readonly AppSettings _appSettings;
         public bool Execute(PlayerCommand cmd, CommandContext ctx)
         {
             if (ctx.IsPlaylistEmpty())
@@ -62,6 +60,7 @@ namespace MP3PlayerV2.Commands.Core
             if (!string.IsNullOrWhiteSpace(cmd.Range)) { range = cmd.Range.Trim().ToLowerInvariant(); }
             else if (!string.IsNullOrWhiteSpace(cmd.Order)) { range = cmd.Order.Trim().ToLowerInvariant(); }
 
+            var appSettings = ctx.GetApplicationStateService().Settings;
             bool validStat = false;
             switch (stat)
             {
@@ -74,11 +73,10 @@ namespace MP3PlayerV2.Commands.Core
                     validStat = true;
                     break;
                 case "all":
-                    validStat = _appSettings.CommandBehaviour.AllowRemoteDatabaseWipe;
+                    validStat = appSettings.CommandBehaviour.AllowRemoteDatabaseWipe;
                     break;
                 default:
                     ctx.Respond(cmd.Command, false, "Unknown stat set for reset", cmd.Value);
-                    validStat = false;
                     return false;
             }
 

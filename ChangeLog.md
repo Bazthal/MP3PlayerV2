@@ -27,6 +27,7 @@
 - Optimized parallel file processing with adaptive concurrency limits based on processor count.
 
 ## Command System
+- Added `ShuffleModeCommand` to query current shuffle mode, list all available modes, and switch between modes.
 - Added `HighlightCommand` to select and highlight tracks in the playlist without starting playback.
 - Added `SeekCommand` to query or set playback position with UI tracking slider synchronization.
 - Added `CommandInfo` record to encapsulate command metadata.
@@ -63,6 +64,7 @@
 - NowPlaying broadcast includes timestamp from previous time the track was played and the current index in the playlist.
 
 ## Configuration & Plugins
+- Added setting to store and auto-load the last opened playlist on application startup.
 - Moved configuration saving and loading to `ConfigManager` for pre-UI access.
 - Added `AudioDevice` class to encapsulate audio device properties.
 - `BazthalLib.DebugMode` and `BazthalLib.LogToFile` are now user-configurable.
@@ -71,6 +73,7 @@
 - Added option to disable automatic playback on file association launch.
 
 ## User Interface & Experience
+- Added Toggle to disable auto restoring of last location / size
 - Added Location and size settings to remember last used location.
 - Added confirmation message to prevent accidental settings reset.
 - Right-click album art to save images with default naming {artist}_{album}.
