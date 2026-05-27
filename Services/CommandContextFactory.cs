@@ -147,6 +147,12 @@ namespace MP3PlayerV2.Services
                 },
                 SetShuffleMode = mode => {
                     state.Settings.SmartShuffle.Mode = mode;
+
+                    bool parsed = Enum.TryParse(mode, out SmartShuffleMode modeOut);
+                    if (parsed)
+                    {
+                        ApplicationStateService.Instance.SmartShuffleMode = modeOut;
+                    }
                 },
                 GetSelectedShuffleMode = () => 
                 {

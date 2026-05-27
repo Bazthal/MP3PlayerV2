@@ -171,6 +171,11 @@
         /// Gets or sets a value indicating whether logs are saved to file
         /// </summary>
         public bool LogToFile { get; set; } = false;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether play data editing is enabled.
+        /// </summary>
+        public bool EnablePlayDataEdits { get; set; } = false;
     }
 }
 

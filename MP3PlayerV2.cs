@@ -179,9 +179,10 @@ namespace MP3PlayerV2
             }
             else
             { this.StartPosition = FormStartPosition.WindowsDefaultLocation; }
-
-            if (_settings.Application.AutoOpenLastPlaylist == true && _settings.Application.LastPlaylistOpened != string.Empty ) 
-            { LoadPlaylist(_settings.Application.LastPlaylistOpened); }
+            var lastfile = _settings.Application.LastPlaylistOpened;
+            
+            if (_settings.Application.AutoOpenLastPlaylist == true && (lastfile != string.Empty && File.Exists(lastfile)) ) 
+            { LoadPlaylist(lastfile); }
         }
 
         #endregion Constructor
@@ -456,7 +457,8 @@ namespace MP3PlayerV2
                 playListBox.SelectedIndex,
                 _playlistManager.Count,
                 option,
-                _smartShuffleMode,
+                ApplicationStateService.Instance.SmartShuffleMode,
+                //_smartShuffleMode,
                 i => _playlistManager.Get(i),
                 () => _playlistManager.Tracks
             );
@@ -2202,12 +2204,14 @@ namespace MP3PlayerV2
         {
             if (_webSocket.IsRunning)
                 return;
-
+            /*
             _webSocket.CommandReceived += (sender, e) =>
             {
                 HandleCommand(e.Message);
             };
-
+            */
+            
+            _webSocket.CommandReceived += (sender, e) => BeginInvoke(() => HandleCommand(e.Message));
             _webSocket.Start(
                 _settings.WebSocket.Address,
                 _settings.WebSocket.Port,

@@ -55,6 +55,7 @@
 - Deduplication can be initiated from the database tab in settings.
 - Added try-catch blocks to prevent "file in use" errors.
 - Rating reset now maintains Like/Dislike scores.
+- Added ability to edit track metadata directly in file
 
 ## Audio & Playback
 - Fixed crash from album images with `application/SMFMF` MIME type.
@@ -71,6 +72,7 @@
 - Custom debug action delegate available for plugin development.
 - Added option for multiple application instances (disabled by default).
 - Added option to disable automatic playback on file association launch.
+- Added debug option to config file for enabling playdata stats editing
 
 ## User Interface & Experience
 - Added Toggle to disable auto restoring of last location / size

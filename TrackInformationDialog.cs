@@ -2,7 +2,10 @@
 using BazthalLib.Controls;
 using BazthalLib.Systems.IO;
 using BazthalLib.UI;
+using CSCore.XAudio2;
+using MP3PlayerV2.Controllers;
 using MP3PlayerV2.Models;
+using MP3PlayerV2.Services;
 using System.Text;
 using static BazthalLib.DebugUtils;
 
@@ -32,12 +35,16 @@ namespace MP3PlayerV2
             tb_Date, tb_TrackNumber, tb_BitRate, tb_PlayCount, tb_PlayCompleteCount, tb_SkipCount,
             tb_RatingScore, tb_UserRating, tb_Comments;
 
-
         private ThemablePictureBox pb_AlbumArtBox;
-        private ThemableButton btn_OpenFolder, btn_CloseDialog;
+        private ThemableButton btn_OpenFolder, btn_CloseDialog, btn_SaveMetadata, btn_SavePlaydataEdits;
+
+        private ThemableCheckBox chkbox_EnableMetaDataEdits;
 
         private string _albumArtist = string.Empty;
 
+        private ApplicationStateService applicationState;
+
+        private Track? _track = null;
         #endregion fields
 
         #region Constructor
@@ -68,10 +75,17 @@ namespace MP3PlayerV2
 
             if (track != null)
             {
+                _track = track;
                 PopulateTrackInfo(track);
-
             }
 
+            if (ApplicationStateService.Instance.Settings.Debug.EnablePlayDataEdits == true)
+            {
+                ToggleReadOnly("playdata", false);
+                btn_SavePlaydataEdits.Enabled = true;
+                btn_SavePlaydataEdits.Visible = true;
+
+            }
         }
 
         #endregion Constructor
@@ -92,39 +106,44 @@ namespace MP3PlayerV2
 
             //Labels and Textblocks
             lbl_Title = new() { Location = new Point(144, 8), AutoSize = true, Text = "Title:" };
-            tb_Title = new() { Location = new Point(144, 26), Size = new(478, 23), Text = "Unknown Title", ReadOnly = true, ShowDisabledState = false, TabIndex = 0 }; 
+            tb_Title = new() { Location = new Point(144, 26), Size = new(478, 23), Text = "Unknown Title", ReadOnly = true, ShowDisabledState = false, TabIndex = 0, Tag = "metadata"}; 
             lbl_Artist = new() { Location = new Point(144, 52), AutoSize = true, Text = "Artist:" };
-            tb_Artist = new() { Location = new Point(144, 70), Size = new(478, 23), Text = "Unknown Artist", ReadOnly = true, ShowDisabledState = false, TabIndex = 1 };
+            tb_Artist = new() { Location = new Point(144, 70), Size = new(478, 23), Text = "Unknown Artist", ReadOnly = true, ShowDisabledState = false, TabIndex = 1, Tag = "metadata" };
             lbl_Album = new() { Location = new Point(144, 96), AutoSize = true, Text = "Album:" };
-            tb_Album = new() { Location = new Point(144, 114), Size = new(478, 23),Text = "Unknown Album", ReadOnly = true, ShowDisabledState = false, TabIndex = 2 };
+            tb_Album = new() { Location = new Point(144, 114), Size = new(478, 23),Text = "Unknown Album", ReadOnly = true, ShowDisabledState = false, TabIndex = 2, Tag = "metadata" };
             lbl_FilePath = new() { Location = new Point(10, 139), AutoSize = true, Text = "Location:" };
             tb_FilePath = new() { Location = new Point(10, 157), Size = new(508, 23), Text = "No File Found", ReadOnly = true, ShowDisabledState = false, TabIndex = 3 };
             lbl_Duration = new() { Location = new Point(10, 183), AutoSize = true, Text = "Duration:" };
             tb_Duration = new() { Location = new Point(10, 200), Size = new(78, 23), Text = "4:20", ReadOnly = true, ShowDisabledState = false, TabIndex = 5 };
             lbl_Genre = new() { Location = new Point(94, 183), AutoSize = true, Text = "Genre:" };
-            tb_Genre = new() { Location = new Point(94, 200), Size = new(237, 23), Text = "Unknown Genre", ReadOnly = true, ShowDisabledState = false, TabIndex = 6 };
+            tb_Genre = new() { Location = new Point(94, 200), Size = new(237, 23), Text = "Unknown Genre", ReadOnly = true, ShowDisabledState = false, TabIndex = 6, Tag = "metadata" };
             lbl_TrackNumber = new() { Location = new Point(339, 183), AutoSize = true, Text = "Track Number:" };
-            tb_TrackNumber = new() { Location = new Point(339, 200), Size = new(100, 23), Text = $"1 / 10", ReadOnly = true, ShowDisabledState = false, TabIndex = 7 };
+            tb_TrackNumber = new() { Location = new Point(339, 200), Size = new(100, 23), Text = $"1 / 10", ReadOnly = true, ShowDisabledState = false, TabIndex = 7, Tag = "metadata" };
             lbl_Date = new() { Location = new Point(445, 183), AutoSize = true, Text = "Date:" };
-            tb_Date = new() { Location = new Point(445, 200), Size = new(73, 23), Text = "6969", ReadOnly = true, ShowDisabledState = false, TabIndex = 8 };
+            tb_Date = new() { Location = new Point(445, 200), Size = new(73, 23), Text = "6969", ReadOnly = true, ShowDisabledState = false, TabIndex = 8, Tag = "metadata" };
             lbl_BitRate = new() { Location = new Point(524, 183), AutoSize = true, Text = "Bit Rate:" };
             tb_BitRate = new() { Location = new Point(524, 200), Size = new(78, 23), Text = "320kbps", ReadOnly = true, ShowDisabledState = false, TabIndex = 9 };
             lbl_PlayCount = new() { Location = new Point(10, 226), AutoSize = true, Text = "Play Count:" };
-            tb_PlayCount = new() { Location = new Point(10, 244), Size = new(100, 23), Text = "0", ReadOnly = true, ShowDisabledState = false, TabIndex = 10 };
+            tb_PlayCount = new() { Location = new Point(10, 244), Size = new(100, 23), Text = "0", ReadOnly = true, ShowDisabledState = false, TabIndex = 10, Tag = "playdata" };
             lbl_PlayCompleteCount = new() { Location = new Point(116, 226), AutoSize = true, Text = "Complete Plays:" };
-            tb_PlayCompleteCount = new() { Location = new Point(116, 244), Size = new(100, 23), Text = "0", ReadOnly = true, ShowDisabledState = false, TabIndex = 11 };
+            tb_PlayCompleteCount = new() { Location = new Point(116, 244), Size = new(100, 23), Text = "0", ReadOnly = true, ShowDisabledState = false, TabIndex = 11, Tag = "playdata" };
             lbl_SkipCount = new() { Location = new Point(222, 226), AutoSize = true, Text = "Skip Count:" };
-            tb_SkipCount = new() { Location = new Point(222, 244), Size = new(100, 23), Text = "0", ReadOnly = true, ShowDisabledState = false, TabIndex = 12 };
+            tb_SkipCount = new() { Location = new Point(222, 244), Size = new(100, 23), Text = "0", ReadOnly = true, ShowDisabledState = false, TabIndex = 12, Tag = "playdata" };
             lbl_RatingScore = new() { Location = new Point(328, 226), AutoSize = true, Text = "Rating Score:" };
-            tb_RatingScore = new() { Location = new Point(328, 244), Size = new(100, 23), Text = "0", ReadOnly = true, ShowDisabledState = false, TabIndex = 13 };
+            tb_RatingScore = new() { Location = new Point(328, 244), Size = new(100, 23), Text = "0", ReadOnly = true, ShowDisabledState = false, TabIndex = 13, Tag = "playdata" };
             lbl_UserRating = new() { Location = new Point(434, 226), AutoSize = true, Text = "User Rating:" };
             tb_UserRating = new() { Location = new Point(434, 244), Size = new(84, 23), Text = "Neutral", ReadOnly = true, ShowDisabledState = false, TabIndex = 14 };
             lbl_Comments = new() { Location = new Point(10, 270), AutoSize = true, Text = "Comments:" };
-            tb_Comments = new() { Location = new Point(10, 288), Size = new(612, 148), Text = "Comment", ReadOnly = true, ShowDisabledState = false, TabIndex = 15, Multiline = true };
+            tb_Comments = new() { Location = new Point(10, 288), Size = new(612, 148), Text = "Comment", ReadOnly = true, ShowDisabledState = false, TabIndex = 15, Multiline = true, Tag = "metadata" };
 
             //Buttons
             btn_OpenFolder = new() { Location = new Point(524, 156), Size = new(100, 23), Text = "Open Folder", TabIndex = 4, RoundCorners = true, CornerRadius = 5, TabStop = true };
             btn_CloseDialog = new() { Location = new Point(547, 447), Size = new(75, 23), Text = "Close", TabIndex = 16, RoundCorners = true, CornerRadius = 5, TabStop = true };
+            btn_SaveMetadata = new() { Location = new Point(467, 447), Size = new(75, 23), Text = "Save", TabIndex = 17, RoundCorners = true, CornerRadius = 5, TabStop = true, Enabled = false, Visible = false };
+            btn_SavePlaydataEdits = new() { Location = new Point(524, 244), Size = new(100, 23), Text = "Save Playdata", TabIndex = 100, RoundCorners = true, CornerRadius = 5, TabStop = true, Enabled = false, Visible = false };
+
+            //Comboboxes
+            chkbox_EnableMetaDataEdits = new() { Location = new Point(10, 447), Text = "Enable metadata editing", TabIndex = 18, TabStop = true };
         }
 
         /// <summary>
@@ -135,7 +154,7 @@ namespace MP3PlayerV2
         /// necessary UI elements are included in the form for proper display  and interaction.</remarks>
         private void LayoutControls()
         {
-            this.Controls.AddRange(new Control[]
+            Controls.AddRange(new Control[]
                 {
                     pb_AlbumArtBox,
                     tb_Title, tb_Artist, tb_Album, tb_FilePath, tb_Genre,
@@ -146,7 +165,9 @@ namespace MP3PlayerV2
                     lbl_TrackNumber, lbl_BitRate, lbl_Comments, lbl_PlayCount, lbl_SkipCount, lbl_RatingScore,
                     lbl_PlayCompleteCount, lbl_UserRating, lbl_Duration,
 
-                    btn_OpenFolder, btn_CloseDialog
+                    btn_OpenFolder, btn_CloseDialog, btn_SaveMetadata, btn_SavePlaydataEdits,
+
+                    chkbox_EnableMetaDataEdits
                 });
         }
 
@@ -160,6 +181,12 @@ namespace MP3PlayerV2
         {
             btn_CloseDialog.Click += (s, e) => Close_Click();
             btn_OpenFolder.Click += (s, e) => OpenFolder_Click();
+
+            btn_SaveMetadata.Click += (s, e) => SaveMetaData_Click();
+            btn_SavePlaydataEdits.Click += (s, e) => SavePlayData_Click();
+
+            chkbox_EnableMetaDataEdits.CheckedChanged += (s, e) => EnableEdit_CheckedChanged();
+
             pb_AlbumArtBox.MouseDown += (s, e) => { if (e.Button == MouseButtons.Right && pb_AlbumArtBox.Image != null) SaveImageToFile(); };
 
             this.FormClosing += (s, e) => { this.Dispose(); };
@@ -168,6 +195,69 @@ namespace MP3PlayerV2
         #endregion Initialization Helpers
 
         #region Helper Methods
+
+        /// <summary>
+        /// Prompts the user to confirm metadata changes and saves them directly to the audio file if confirmed.
+        /// </summary>
+        private void SaveMetaData_Click()
+        {
+            var result = ThemableMessageBox.Show("Are you sure you want to save these metadata changes?\nChanges will be written directly to the audio file.","Confirm Metadata Changes",MessageBoxButtons.YesNo, autoCloseMilliseconds:3000);
+
+            if (result == DialogResult.Yes)
+            {
+                UpdateMetadataToFile(_track);
+            }
+        }
+
+        /// <summary>
+        /// Prompts for confirmation and saves the track's play statistics after creating a database backup.
+        /// </summary>
+        private void SavePlayData_Click()
+        {
+
+            var result = ThemableMessageBox.Show("Are you sure you want to save these changes?\nA Backup will be made", "Confirm", MessageBoxButtons.YesNo,autoCloseMilliseconds:3000);
+            if (result == DialogResult.Yes)
+            {
+                TrackDatabase.BackUpDatabase();
+                _track.PlayCount = int.Parse(tb_PlayCount.Text);
+                _track.PlayCompleteCount = int.Parse(tb_PlayCompleteCount.Text);
+                _track.SkipCount = int.Parse(tb_SkipCount.Text);
+                _track.RatingScore = int.Parse(tb_RatingScore.Text);
+                TrackDatabase.SaveStats(_track);
+            }
+
+        }
+
+        /// <summary>
+        /// Toggles the read-only state of metadata fields based on the checked state of the enable metadata edits
+        /// checkbox.
+        /// </summary>
+        private void EnableEdit_CheckedChanged() 
+        {
+            bool readOnlyFlag = chkbox_EnableMetaDataEdits.Checked == false;
+            btn_SaveMetadata.Enabled = !readOnlyFlag;
+            btn_SaveMetadata.Visible = !readOnlyFlag;
+            ToggleReadOnly("metadata", readOnlyFlag);
+        }
+
+        /// <summary>
+        /// Sets the ReadOnly property for all ThemableTextBox controls with a matching tag.
+        /// </summary>
+        /// <param name="tag">The tag value to match.</param>
+        /// <param name="flag">The value to set for the ReadOnly property.</param>
+        private void ToggleReadOnly (string tag, bool flag)
+        {
+            for (int i = 0; i < Controls.Count; i++)
+            {
+                if (Controls[i] is ThemableTextBox txt)
+                {
+                    if (txt.Tag != null && txt.Tag.ToString() == tag)
+                    {
+                        txt.ReadOnly = flag;
+                    }
+                }
+            }
+        }
 
         /// <summary>
         /// Opens the folder containing the specified file in Windows Explorer and selects the file.
@@ -259,7 +349,29 @@ namespace MP3PlayerV2
                 pb_AlbumArtBox.EnableBorder = false;
                 //pb_AlbumArtBox.Image = null;`
             }
+        }
 
+
+        private void UpdateMetadataToFile(Track track)
+        {
+            track.Title = tb_Title.Text;
+            track.Artist = tb_Artist.Text;
+            track.Album = tb_Album.Text;
+
+            using var tagFile = TagLib.File.Create(_filePath);
+            tagFile.Tag.Title = track.Title;
+            tagFile.Tag.Performers = track.Artist.Split('/').ToArray();
+            tagFile.Tag.Album = track.Album;
+            tagFile.Tag.Genres = tb_Genre.Text.Split(',').Select(g => g.Trim()).ToArray();
+            tagFile.Tag.Year = uint.TryParse(tb_Date.Text, out var year) ? year : 0;
+            tagFile.Tag.Track = uint.TryParse(tb_TrackNumber.Text.Split('/')[0].Trim(), out var trackNum) ? trackNum : 0;
+            tagFile.Tag.TrackCount = uint.TryParse(tb_TrackNumber.Text.Split('/')[1].Trim(), out var trackCount) ? trackCount : 0;
+            tagFile.Tag.Comment = tb_Comments.Text;
+            
+            try { tagFile.Save(); }
+            catch { }
+            track.Hash = TrackDatabase.ComputeFileHash(track.FilePath, full: false);
+            TrackDatabase.SaveStats(track);
         }
 
 #nullable enable
