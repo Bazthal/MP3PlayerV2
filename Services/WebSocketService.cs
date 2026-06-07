@@ -1,6 +1,7 @@
 using BazthalLib;
 using MP3PlayerV2.Models;
 using System;
+using System.Collections.Concurrent;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -20,7 +21,8 @@ namespace MP3PlayerV2.Services
         private WebSocketServer? _server;
         private Thread? _serverThread;
         private bool _running;
-        private string _lastResponse = string.Empty;
+        //private string _lastResponse = string.Empty;
+        private readonly ConcurrentQueue<string> _pendingResponses = new();
         private static string _commandEndpoint = ConfigManager.Settings.WebSocket.EndPoint;
 
         private static readonly JsonSerializerOptions _jsonOptions = new()
@@ -38,12 +40,12 @@ namespace MP3PlayerV2.Services
         /// Gets whether the WebSocket server is currently running.
         /// </summary>
         public bool IsRunning => _running;
-
+        /*
         /// <summary>
         /// Gets the last response message that was built.
         /// </summary>
         public string LastResponse => _lastResponse;
-
+        */
         #endregion
 
         #region Events
@@ -154,15 +156,20 @@ namespace MP3PlayerV2.Services
         {
             string result = success ? "Success" : "Fail";
 
+            string response;
             if (raw && data is string jsonString)
             {
-                _lastResponse = $"{{\"Command\":\"{command}\",\"Result\":\"{result}\",\"Message\":\"{message}\",\"Data\":{jsonString}}}";
-                return _lastResponse;
+                response = $"{{\"Command\":\"{command}\",\"Result\":\"{result}\",\"Message\":\"{message}\",\"Data\":{jsonString}}}";
+            }
+            else
+            {
+                var payload = new { Command = command, Result = result, Message = message, Data = data };
+                response = JsonSerializer.Serialize(payload, _jsonOptions);
             }
 
-            var response = new {Command = command, Result = result, Message = message, Data = data };
-            _lastResponse = JsonSerializer.Serialize(response, _jsonOptions);
-            return _lastResponse;
+            //_lastResponse = response;
+            _pendingResponses.Enqueue(response);
+            return response;
         }
 
         #endregion
@@ -276,16 +283,19 @@ namespace MP3PlayerV2.Services
             {
                 DebugUtils.Log("CommandExecutor", "OnMessage", $"Received: {e.Data}", logLevel: DebugUtils.LogLevel.Info);
 
+                while (_service._pendingResponses.TryDequeue(out _))
+                {
+                }
+
                 // Raise event for command handling
                 _service.OnCommandReceived(e.Data);
 
                 // Send response if available
                 if (Context.WebSocket.ReadyState == WebSocketState.Open)
                 {
-                    string response = _service.LastResponse;
-                    if (!string.IsNullOrEmpty(response))
+                    if (_service._pendingResponses.TryDequeue(out string? response) && !string.IsNullOrEmpty(response))
                     {
-                        Sessions.Broadcast(response);
+                        _service.BroadcastCommandResponse(response);
                         DebugUtils.Log("CommandExecutor", "OnMessage", "Response broadcasted", logLevel: DebugUtils.LogLevel.Info);
                     }
                 }

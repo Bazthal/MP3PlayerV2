@@ -52,7 +52,7 @@ namespace MP3PlayerV2
         internal static int _updateStep = 1;
         private bool _userSeeked = false;
 
-        private static SmartShuffleMode _smartShuffleMode = SmartShuffleMode.UnplayedFirst;
+       // private static SmartShuffleMode _smartShuffleMode = SmartShuffleMode.UnplayedFirst;
 
         #endregion Playback Utilities
 
@@ -834,9 +834,11 @@ namespace MP3PlayerV2
             string legacyDbPath = Files.ChooseFile("Select Legacy Track Database", "LiteDB files (*.db)|*.db|All files (*.*)|*.*");
             if (string.IsNullOrWhiteSpace(legacyDbPath)) return;
 
-            var dialog = new ThemableProcessingDialog("Importing tracks...");
-            dialog.StartPosition = FormStartPosition.Manual;
-            dialog.Icon = Icon;
+            var dialog = new ThemableProcessingDialog("Importing tracks...")
+            {
+                StartPosition = FormStartPosition.Manual,
+                Icon = Icon
+            };
             dialog.Location = new(
                 this.Location.X + (this.Width - dialog.Width) / 2,
                 this.Location.Y + (this.Height - dialog.Height) / 2
@@ -929,7 +931,8 @@ namespace MP3PlayerV2
         private void PopulateAudioDeviceList()
         {
             AudioDeviceList.Items.Clear();
-            AudioDeviceList.Items.AddRange(_audioDevices.Devices.ToArray());
+            AudioDeviceList.Items.AddRange([.._audioDevices.Devices]);
+            //AudioDeviceList.Items.AddRange(_audioDevices.Devices.ToArray());
         }
 
         /// <summary>
@@ -938,7 +941,8 @@ namespace MP3PlayerV2
         private void OnAudioDevicesChanged(object? sender, DevicesChangedEventArgs e)
         {
             AudioDeviceList.Items.Clear();
-            AudioDeviceList.Items.AddRange(e.Devices.ToArray());
+            AudioDeviceList.Items.AddRange([..e.Devices]);
+            //AudioDeviceList.Items.AddRange(e.Devices.ToArray());
 
             if (e.SuggestedIndex >= 0 && e.SuggestedIndex < AudioDeviceList.Items.Count)
             {
@@ -1042,7 +1046,8 @@ namespace MP3PlayerV2
         /// langword="true"/>, playback begins immediately after adding the first valid track or playlist.</param>
         internal void HandleDroppedFiles(string[] files, bool autoPlay = false)
         {
-            List<string> validAudioFiles = new();
+            List<string> validAudioFiles = [];
+            //List<string> validAudioFiles = new();
 
             foreach (var path in files)
             {
@@ -1077,7 +1082,8 @@ namespace MP3PlayerV2
                 if (autoPlay)
                     AttachAutoPlayHandler(firstTrack: false);
 
-                AddItem(validAudioFiles.ToArray());
+                AddItem([..validAudioFiles]);
+                //AddItem(validAudioFiles.ToArray());
             }
         }
 
@@ -1235,7 +1241,7 @@ namespace MP3PlayerV2
                 if (files == null || files.Length == 0) return;
             }
 
-            var dialog = new ThemableProcessingDialog("Adding tracks...") { StartPosition = FormStartPosition.Manual };
+           using var dialog = new ThemableProcessingDialog("Adding tracks...") { StartPosition = FormStartPosition.Manual };
             dialog.Icon = Icon;
             dialog.Location = new(
                 this.Location.X + (this.Width - dialog.Width) / 2,
@@ -1308,7 +1314,7 @@ namespace MP3PlayerV2
             string saveFileName = Files.SaveFile("", _defaultPlaylistExtentionFilter, "Save Playlist", true);
             if (string.IsNullOrWhiteSpace(saveFileName)) return;
 
-            var dialog = new ThemableProcessingDialog("Saving Playlist...", showProgress: true, showCancelButton: false) { StartPosition = FormStartPosition.Manual };
+            using var dialog = new ThemableProcessingDialog("Saving Playlist...", showProgress: true, showCancelButton: false) { StartPosition = FormStartPosition.Manual };
             dialog.Icon = Icon;
             dialog.Location = new(
                 this.Location.X + (this.Width - dialog.Width) / 2,
@@ -1366,7 +1372,7 @@ namespace MP3PlayerV2
                 if (string.IsNullOrWhiteSpace(loadFileName)) return;
             }
 
-            var dialog = new ThemableProcessingDialog("Loading Playlist") { StartPosition = FormStartPosition.Manual };
+            using var dialog = new ThemableProcessingDialog("Loading Playlist") { StartPosition = FormStartPosition.Manual };
             dialog.Icon = Icon;
             dialog.Location = new(
                 this.Location.X + (this.Width - dialog.Width) / 2,
@@ -1509,7 +1515,8 @@ namespace MP3PlayerV2
                 _trackNavigation.MaxHistorySize = Math.Min(_settings.Playback.MaxTrackHistory, 9999);
 
                 bool parsed = Enum.TryParse(_settings.SmartShuffle.Mode, out SmartShuffleMode mode);
-                if (parsed) _smartShuffleMode = mode;
+                if (parsed) ApplicationStateService.Instance.SmartShuffleMode = mode;
+                //if (parsed) _smartShuffleMode = mode;
 
                 _includeData = _settings.CommandBehaviour.IncludeTracksInCount;
 
@@ -1590,7 +1597,7 @@ namespace MP3PlayerV2
             bool parsed = Enum.TryParse(_settings.SmartShuffle.Mode, out SmartShuffleMode mode);
             if (parsed)
             {
-                _smartShuffleMode = mode;
+                //_smartShuffleMode = mode;
                 ApplicationStateService.Instance.SmartShuffleMode = mode;
             }
 
@@ -2204,14 +2211,12 @@ namespace MP3PlayerV2
         {
             if (_webSocket.IsRunning)
                 return;
-            /*
+            
             _webSocket.CommandReceived += (sender, e) =>
             {
-                HandleCommand(e.Message);
+                if (!IsDisposed && IsHandleCreated)
+                    Invoke(() => HandleCommand(e.Message));
             };
-            */
-            
-            _webSocket.CommandReceived += (sender, e) => BeginInvoke(() => HandleCommand(e.Message));
             _webSocket.Start(
                 _settings.WebSocket.Address,
                 _settings.WebSocket.Port,
@@ -2276,7 +2281,7 @@ namespace MP3PlayerV2
             appState.CurrentTrack = _currentTrackModel;
             appState.CurrentTrackFilePath = _currentTrackFilePath;
             appState.VolumeLevel = _volumeLevel;
-            appState.SmartShuffleMode = _smartShuffleMode;
+            //appState.SmartShuffleMode = _smartShuffleMode;
 
             var context = CommandContextFactory.Create();
 

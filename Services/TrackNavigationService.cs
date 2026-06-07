@@ -225,6 +225,14 @@ namespace MP3PlayerV2.Services
 
         #region Private Methods - Navigation Logic
 
+        /// <summary>
+        /// Dequeues the next track from the queue by searching the playlist for a matching entry.
+        /// </summary>
+        /// <remarks>Stale queue entries that do not match any track in the playlist are automatically
+        /// removed.</remarks>
+        /// <param name="getTrackAt">Function to retrieve a track at a specific index.</param>
+        /// <param name="playlistCount">Total number of tracks in the playlist.</param>
+        /// <returns>A tuple containing the matched track and its index, or (null, -1) if no match is found.</returns>
         private (Track? track, int index) DequeueTrack(Func<int, Track?> getTrackAt, int playlistCount)
         {
             while (_trackQueue.Count > 0)
@@ -249,12 +257,26 @@ namespace MP3PlayerV2.Services
             return (null, -1);
         }
 
+        /// <summary>
+        /// Gets the next track in repeat mode, wrapping to the beginning when reaching the end of the playlist.
+        /// </summary>
+        /// <param name="currentIndex">The current track index.</param>
+        /// <param name="playlistCount">The total number of tracks in the playlist.</param>
+        /// <param name="getTrackAt">A function that retrieves a track at the specified index.</param>
+        /// <returns>A tuple containing the next track and its index.</returns>
         private (Track? track, int index) GetNextInRepeatMode(int currentIndex, int playlistCount, Func<int, Track?> getTrackAt)
         {
             int nextIndex = currentIndex < playlistCount - 1 ? currentIndex + 1 : 0;
             return (getTrackAt(nextIndex), nextIndex);
         }
 
+        /// <summary>
+        /// Gets the next track sequentially in the playlist.
+        /// </summary>
+        /// <param name="currentIndex">The current track index in the playlist.</param>
+        /// <param name="playlistCount">The total number of tracks in the playlist.</param>
+        /// <param name="getTrackAt">Function to retrieve a track at a specified index.</param>
+        /// <returns>A tuple containing the next track and its index, or (null, -1) if at the end of the playlist.</returns>
         private (Track? track, int index) GetNextSequential(int currentIndex, int playlistCount, Func<int, Track?> getTrackAt)
         {
             if (currentIndex < playlistCount - 1)
@@ -267,6 +289,13 @@ namespace MP3PlayerV2.Services
             return (null, -1);
         }
 
+        /// <summary>
+        /// Gets a random track from a playlist, optionally avoiding a specified track.
+        /// </summary>
+        /// <param name="playlistCount">The total number of tracks in the playlist.</param>
+        /// <param name="exclude">The track to attempt to avoid selecting, or null to allow any track.</param>
+        /// <param name="getTrackAt">A function that retrieves a track at the specified index.</param>
+        /// <returns>A tuple containing the randomly selected track and its index in the playlist.</returns>
         private (Track? track, int index) GetRandomTrack(int playlistCount, Track? exclude, Func<int, Track?> getTrackAt)
         {
             int randomIndex = _random.Next(0, playlistCount);
@@ -284,6 +313,14 @@ namespace MP3PlayerV2.Services
             return (getTrackAt(randomIndex), randomIndex);
         }
 
+        /// <summary>
+        /// Selects a track using smart shuffle logic and finds its index in the playlist.
+        /// </summary>
+        /// <param name="mode">The smart shuffle mode to use for track selection.</param>
+        /// <param name="getAllTracks">Function that returns all available tracks.</param>
+        /// <param name="getTrackAt">Function that retrieves a track at a specific index.</param>
+        /// <param name="playlistCount">The total number of tracks in the playlist.</param>
+        /// <returns>A tuple containing the selected track and its index, or (null, -1) if no track is found.</returns>
         private (Track? track, int index) GetSmartShuffleTrack(
             SmartShuffleMode mode,
             Func<IEnumerable<Track>> getAllTracks,
@@ -313,11 +350,43 @@ namespace MP3PlayerV2.Services
 
         #region Private Methods - Smart Shuffle
 
+        /// <summary>
+        /// Selects a track from the provided list using the specified smart shuffle mode algorithm.
+        /// </summary>
+        /// <param name="mode">The smart shuffle mode that determines the track selection strategy.</param>
+        /// <param name="tracks">The list of tracks to select from.</param>
+        /// <param name="history">The history of recently played tracks used to avoid repetition.</param>
+        /// <returns>The selected track, or <see langword="null"/> if no tracks are available.</returns>
         private Track? PickSmartTrack(SmartShuffleMode mode, List<Track> tracks, LimitedStack<Track> history)
         {
             if (!tracks.Any()) return null;
 
             var recentTrackSet = new HashSet<Guid>(history.Select(h => h.Guid));
+
+            List<Track> ExpandByLastPlayedWeight(List<Track> candidates)
+            {
+                if (candidates.Count <= 1)
+                    return candidates;
+
+                var now = DateTime.UtcNow;
+                var weighted = new List<Track>();
+
+                foreach (var track in candidates)
+                {
+                    int weight = track.LastPlayed switch
+                    {
+                        null => 5,
+                        var lastPlayed => Math.Clamp((int)Math.Ceiling((now - lastPlayed.Value.ToUniversalTime()).TotalDays / 7d) + 1, 1, 5)
+                    };
+
+                    for (int i = 0; i < weight; i++)
+                    {
+                        weighted.Add(track);
+                    }
+                }
+
+                return weighted;
+            }
 
             List<Track> LeastPlayedOf(IEnumerable<Track> source, bool avoidRecent)
             {
@@ -332,10 +401,10 @@ namespace MP3PlayerV2.Services
                 if (avoidRecent)
                 {
                     var nonRecent = bucket.Where(t => !recentTrackSet.Contains(t.Guid)).ToList();
-                    if (nonRecent.Any()) return nonRecent;
+                    if (nonRecent.Any()) return ExpandByLastPlayedWeight(nonRecent);
                 }
 
-                return bucket;
+                return ExpandByLastPlayedWeight(bucket);
             }
 
             List<Track> FallbackCandidates()
@@ -359,12 +428,28 @@ namespace MP3PlayerV2.Services
             return selectedTrack;
         }
 
+        /// <summary>
+        /// Selects a random track, prioritizing unplayed tracks over least played tracks.
+        /// </summary>
+        /// <param name="tracks">The collection of tracks to select from.</param>
+        /// <param name="recentTrackSet">The set of recently played track identifiers.</param>
+        /// <param name="leastPlayedOf">A function that returns the least played tracks from a given collection.</param>
+        /// <returns>A randomly selected track, or null if no selection can be made.</returns>
         private Track? PickUnplayedFirst(List<Track> tracks, HashSet<Guid> recentTrackSet, Func<IEnumerable<Track>, bool, List<Track>> leastPlayedOf)
         {
             var unplayed = tracks.Where(t => (t.PlayCount ?? 0) == 0).ToList();
             return PickRandom(unplayed.Any() ? unplayed : leastPlayedOf(tracks, false), null);
         }
 
+        /// <summary>
+        /// Selects the track with the highest play count, excluding recently played tracks, or picks from fallback
+        /// candidates if no suitable track is found.
+        /// </summary>
+        /// <param name="tracks">List of tracks to select from.</param>
+        /// <param name="recentTrackSet">Set of track GUIDs to exclude from selection.</param>
+        /// <param name="fallbackCandidates">Function that provides alternative tracks when no suitable track is found in the primary list.</param>
+        /// <returns>A randomly selected track with the highest play count, or a track from the fallback candidates, or <see
+        /// langword="null"/> if no tracks are available.</returns>
         private Track? PickMostPlayed(List<Track> tracks, HashSet<Guid> recentTrackSet, Func<List<Track>> fallbackCandidates)
         {
             var maxPlays = tracks.Max(t => t.PlayCount ?? 0);
@@ -380,6 +465,12 @@ namespace MP3PlayerV2.Services
             return PickRandom(mostPlayed.Any() ? mostPlayed : fallbackCandidates(), null);
         }
 
+        /// <summary>
+        /// Selects a random track from the least played liked tracks.
+        /// </summary>
+        /// <param name="tracks">The collection of tracks to filter.</param>
+        /// <param name="leastPlayedOf">Function that returns the least played tracks from a collection.</param>
+        /// <returns>A randomly selected track from the least played liked tracks, or null if no liked tracks are found.</returns>
         private Track? PickLikedOnly(List<Track> tracks, Func<IEnumerable<Track>, bool, List<Track>> leastPlayedOf)
         {
             var liked = tracks.Where(t => t.Liked == true).ToList();
@@ -388,12 +479,25 @@ namespace MP3PlayerV2.Services
             return null;
         }
 
+        /// <summary>
+        /// Randomly selects a track from the provided list, avoiding disliked tracks. Uses fallback candidates if all
+        /// tracks are disliked.
+        /// </summary>
+        /// <param name="tracks">The list of tracks to select from.</param>
+        /// <param name="fallbackCandidates">A function that returns fallback tracks when all provided tracks are disliked.</param>
+        /// <returns>A randomly selected track, or <see langword="null"/> if no suitable tracks are available.</returns>
         private Track? PickAvoidDisliked(List<Track> tracks, Func<List<Track>> fallbackCandidates)
         {
             var noDislike = tracks.Where(t => t.Disliked == false).ToList();
             return PickRandom(noDislike.Any() ? noDislike : fallbackCandidates(), null);
         }
 
+        /// <summary>
+        /// Selects a random track from the list, optionally excluding a specific track.
+        /// </summary>
+        /// <param name="list">The list of tracks to select from.</param>
+        /// <param name="exclude">A track to exclude from selection, or null to allow any track.</param>
+        /// <returns>A randomly selected track, or null if the list is null or empty.</returns>
         private Track? PickRandom(List<Track> list, Track? exclude)
         {
             if (list == null || list.Count == 0)
