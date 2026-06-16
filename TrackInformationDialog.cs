@@ -6,6 +6,7 @@ using CSCore.XAudio2;
 using MP3PlayerV2.Controllers;
 using MP3PlayerV2.Models;
 using MP3PlayerV2.Services;
+using System.Diagnostics;
 using System.Text;
 using static BazthalLib.DebugUtils;
 
@@ -79,7 +80,7 @@ namespace MP3PlayerV2
                 PopulateTrackInfo(track);
             }
 
-            if (ApplicationStateService.Instance.Settings.Debug.EnablePlayDataEdits == true)
+            if (ApplicationStateService.Instance.Settings.Debug.EnablePlayDataEdits == true || Debugger.IsAttached)
             {
                 ToggleReadOnly("playdata", false);
                 btn_SavePlaydataEdits.Enabled = true;

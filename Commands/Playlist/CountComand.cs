@@ -50,11 +50,28 @@ namespace MP3PlayerV2.Commands.Playlist
                     case "liked":
                     case "disliked":
                     case "neutral":
-                        ctx.CountByPlayData(mode);
-                        return true;
+                        {
+                            var state = ctx.GetApplicationStateService();
+                            var matches = state.TrackSearch.FindTracksByPlayData(state.PlaylistManager.Tracks, mode);
+                            bool includeData = state.Settings.CommandBehaviour.IncludeTracksInCount;
+                            ctx.Respond(cmd.Command, true, $"{matches.Count} {mode} track(s) found in the playlist", includeData ? matches : null);
+                            return true;
+                        }
                     default:
-                        ctx.CountByName(mode);
-                        return true;
+                        {
+                            var state = ctx.GetApplicationStateService();
+                            var matches = state.TrackSearch.FindTracksByName(state.PlaylistManager.Tracks, mode);
+                            bool includeData = state.Settings.CommandBehaviour.IncludeTracksInCount;
+                            if (matches.Count > 0)
+                            {
+                                ctx.Respond(cmd.Command, true, $"{matches.Count} matching item(s) found in the playlist for: {mode}", includeData ? matches : null);
+                            }
+                            else
+                            {
+                                ctx.Respond(cmd.Command, false, "No matching item found in the playlist", null);
+                            }
+                            return true;
+                        }
                 }
 
             }

@@ -92,10 +92,20 @@ namespace MP3PlayerV2.Commands.Playlist
                         ctx.Respond(cmd.Command, false, "Playlist is empty", null);
                         return false;
                     }
-                    ctx.Invoke(() =>
+                    var allTracksForQueue = ctx.GetPlaylistTracks();
+                    var bestMatchQueue = ctx.GetApplicationStateService().TrackSearch.FindBestMatch(allTracksForQueue, cmd.Value);
+                    if (bestMatchQueue != null)
                     {
-                        ctx.QueueTrackByName(cmd.Value);
-                    });
+                        ctx.Invoke(() =>
+                        {
+                            ctx.QueueTrackByName(cmd.Value);
+                        });
+                        ctx.Respond(cmd.Command, true, $"Added {bestMatchQueue} to the Queue", null);
+                    }
+                    else
+                    {
+                        ctx.Respond(cmd.Command, false, "No matching item found in the playlist", null);
+                    }
                     return true;
             }
         }

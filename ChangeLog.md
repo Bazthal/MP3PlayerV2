@@ -25,6 +25,7 @@
 - **Reduced Coupling:** Services communicate through well-defined interfaces and events.
 - **Enhanced Documentation:** All service classes include comprehensive XML documentation.
 - Optimized parallel file processing with adaptive concurrency limits based on processor count.
+- Moved `BuildResponse` calls from `CommandContextFactory` into the repsective command classes. 
 
 ## Command System
 - Added `ShuffleModeCommand` to query current shuffle mode, list all available modes, and switch between modes.

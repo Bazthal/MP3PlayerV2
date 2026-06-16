@@ -37,7 +37,7 @@ namespace MP3PlayerV2
 
         #region Playback Settings
 
-        private int _volumeLevel = 100;
+        //private int _volumeLevel = 100;
         //private static int _maxTrackHistory = 100;
 
         #endregion Playback Settings
@@ -326,7 +326,7 @@ namespace MP3PlayerV2
             }
 
             _trackEnd = false;
-            _audioPlayback.VolumeLevel = _volumeLevel;
+            //_audioPlayback.VolumeLevel = _volumeLevel;
 
             var trackText = track.ToString();
             appState.SetCurrentTrackLabel?.Invoke(trackText);
@@ -533,9 +533,10 @@ namespace MP3PlayerV2
         /// The volume is clamped between 0.0 (mute) and 1.0 (full volume).</remarks>
         private void SetVolume(int vol)
         {
-            _volumeLevel = vol;
+           // _volumeLevel = vol;
             _audioPlayback.VolumeLevel = vol;
-            ApplicationStateService.Instance.SetVolumeSliderValue?.Invoke(_volumeLevel);
+            ApplicationStateService.Instance.SetVolumeSliderValue?.Invoke(vol);
+            //ApplicationStateService.Instance.SetVolumeSliderValue?.Invoke(_volumeLevel);
             ApplicationStateService.Instance.VolumeLevel = vol;
         }
 
@@ -1461,8 +1462,14 @@ namespace MP3PlayerV2
         {
             var trackList = tracks.ToList();
             if (trackList.Count <= 0) return;
-
-            string modeText = mode.ToString().Replace("_", " ");
+            string modeText = string.Empty;
+            modeText = mode switch
+            {
+                SmartShuffleMode.UnplayedFirst => "Unplayed",
+                SmartShuffleMode.LikedOnly => "Liked",
+                SmartShuffleMode.AvoidDisliked => "No Disliked",
+                _ => modeText = mode.ToString().Replace("_", " "),
+            };
             var filteredList = _playlistOps.GenerateSmartPlaylist(trackList, mode);
 
             if (filteredList.Count <= 0)
@@ -1569,7 +1576,7 @@ namespace MP3PlayerV2
         private void LoadSettings()
         {
             //Playback Settings
-            _volumeLevel = _settings.Playback.VolumeLvl;
+            //_volumeLevel = _settings.Playback.VolumeLvl;
 
             // Find and select the saved audio device
             int deviceIndex = _audioDevices.FindDeviceByName(_settings.Playback.AudioDevice);
@@ -1606,7 +1613,8 @@ namespace MP3PlayerV2
             : "M3U Playlists|*.m3u;*.m3u8|jsonPlaylist|*.jsonpl|All Supported|*.m3u;*.m3u8;*.jsonpl"; ;
             //New settings to be added here
 
-            SetVolume(_volumeLevel);
+            SetVolume(_settings.Playback.VolumeLvl);
+            //SetVolume(_volumeLevel);
         }
 
         /// <summary>
@@ -1619,7 +1627,8 @@ namespace MP3PlayerV2
         private void SaveSettings()
         {
             //Playback Settings
-            _settings.Playback.VolumeLvl = _volumeLevel;
+            _settings.Playback.VolumeLvl = _audioPlayback.VolumeLevel;
+            //_settings.Playback.VolumeLvl = _volumeLevel;
 
             if (AudioDeviceList.SelectedIndex == -1 && AudioDeviceList.Items.Count > 0)
                 AudioDeviceList.SelectedIndex = 0;
@@ -1975,8 +1984,10 @@ namespace MP3PlayerV2
         /// <param name="e">An <see cref="EventArgs"/> that contains no event data.</param>
         private void Volume_ScrollCompleted(object sender, EventArgs e)
         {
-            _volumeLevel = Volume_Slider.Value;
-            SetVolume(_volumeLevel);
+            _audioPlayback.VolumeLevel = Volume_Slider.Value;
+            //_volumeLevel = Volume_Slider.Value;
+            SetVolume(_audioPlayback.VolumeLevel);
+            //SetVolume(_volumeLevel);
             SaveSettings();
             DebugUtils.Log("Volume Setter", this.AccessibleName, $"Volume Level {Volume_Slider.Value / 100f}", logLevel: DebugUtils.LogLevel.Info);
         }
@@ -2280,7 +2291,8 @@ namespace MP3PlayerV2
             var appState = ApplicationStateService.Instance;
             appState.CurrentTrack = _currentTrackModel;
             appState.CurrentTrackFilePath = _currentTrackFilePath;
-            appState.VolumeLevel = _volumeLevel;
+            appState.VolumeLevel = _audioPlayback.VolumeLevel;
+            //appState.VolumeLevel = _volumeLevel;
             //appState.SmartShuffleMode = _smartShuffleMode;
 
             var context = CommandContextFactory.Create();

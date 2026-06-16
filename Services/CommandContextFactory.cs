@@ -181,11 +181,6 @@ namespace MP3PlayerV2.Services
                     {
                         int index = state.PlaylistManager.IndexOf(bestMatch);
                         state.SetSelectedTrackIndex?.Invoke(index);
-                        state.WebSocket.BuildResponse("Select", true, $"Match found: {bestMatch}");
-                    }
-                    else
-                    {
-                        state.WebSocket.BuildResponse("Select", false, "No matching item found in the playlist");
                     }
                 },
                 GetSelectedTrackName = () =>
@@ -204,11 +199,6 @@ namespace MP3PlayerV2.Services
                     if (index >= 0)
                     {
                         state.SetSelectedTrackIndex?.Invoke(index);
-                        state.WebSocket.BuildResponse("SelectRandom", true, $"Random track selected: {state.PlaylistManager.Get(index)}");
-                    }
-                    else
-                    {
-                        state.WebSocket.BuildResponse("SelectRandom", false, "No tracks available to select");
                     }
                 },
                 #endregion Track Selection
@@ -221,11 +211,6 @@ namespace MP3PlayerV2.Services
                     if (bestMatch != null)
                     {
                         state.TrackNavigation.EnqueueTrack(bestMatch.ToString());
-                        state.WebSocket.BuildResponse("Queue", true, $"Added {bestMatch} to the Queue");
-                    }
-                    else
-                    {
-                        state.WebSocket.BuildResponse("Queue", false, "No matching item found in the playlist");
                     }
                 },
                 GetQueuedTracks = () => state.TrackNavigation.GetQueueCopy(),
@@ -237,18 +222,9 @@ namespace MP3PlayerV2.Services
 
                 CountByName = searchTerm =>
                 {
-                    var matches = state.TrackSearch.FindTracksByName(state.PlaylistManager.Tracks, searchTerm);
-                    bool includeData = state.Settings.CommandBehaviour.IncludeTracksInCount;
-                    if (matches.Count > 0) 
-                    state.WebSocket.BuildResponse("Count", true, $"{matches.Count} matching item(s) found in the playlist for: {searchTerm}", includeData ? matches : null);
-                    else
-                        state.WebSocket.BuildResponse("Count", false, "No matching item found in the playlist");
                 },
                 CountByPlayData = data =>
                 {
-                    var matches = state.TrackSearch.FindTracksByPlayData(state.PlaylistManager.Tracks, data);
-                    bool includeData = state.Settings.CommandBehaviour.IncludeTracksInCount;
-                    state.WebSocket.BuildResponse("Count", true, $"{matches.Count} {data} track(s) found in the playlist", includeData ? matches : null);
                 },
                 ResetStat = async (range, stat) =>
                 {

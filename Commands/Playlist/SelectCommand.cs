@@ -52,7 +52,7 @@ namespace MP3PlayerV2.Commands.Playlist
                     ctx.SelectRandomTrack();
                     ctx.Play(null);
                 });
-                //ctx.Respond(cmd.Command, true, $"Random track selected: {ctx.GetSelectedTrackName()}", null);
+                ctx.Respond(cmd.Command, true, $"Random track selected: {ctx.GetSelectedTrackName()}", null);
                 return true;
             }
 
@@ -63,6 +63,7 @@ namespace MP3PlayerV2.Commands.Playlist
                     ctx.SelectTrackByIndex(index);
                     ctx.Play(null);
                 });
+                ctx.Respond(cmd.Command, true, $"Selected: {ctx.GetSelectedTrackName()}", null);
             }
             else
             {
@@ -71,9 +72,9 @@ namespace MP3PlayerV2.Commands.Playlist
                     ctx.SelectTrackByName(cmd.Value);
                     ctx.Play(null);
                 });
+                ctx.Respond(cmd.Command, true, $"Selected: {ctx.GetSelectedTrackName()}", null);
             }
 
-//            ctx.Respond(cmd.Command, true, $"Selected: {ctx.GetSelectedTrackName()}", null);
             return true;
         }
     }
