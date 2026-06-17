@@ -33,16 +33,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="BazthalLib" Version="1.2.5" />
     <PackageReference Include="CSCore" Version="1.2.1.2" />
     <PackageReference Include="LiteDB" Version="5.0.21" />
     <PackageReference Include="TagLibSharp" Version="2.3.0" />
     <PackageReference Include="WebSocketSharp-netstandard" Version="1.0.1" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="BazthalLib">
-      <HintPath>..\BazthalLib\bin\Debug\net9.0-windows\BazthalLib.dll</HintPath>
-    </Reference>
   </ItemGroup>
 
   <ItemGroup>
